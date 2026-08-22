@@ -9,6 +9,16 @@
 //! Map layout itself (path, build spots, ground tiles) is authored by hand
 //! in Tiled and loaded via [`crate::level::Level`]; this module only turns
 //! that loaded data into something the game can draw and hit-test against.
+//!
+//! `TILE` is purely a *logical* layout unit (world/screen pixels per grid
+//! cell) - it is independent of the tileset image's own tile pixel size
+//! (see [`crate::level::Level::source_tile_size`]), so swapping in a
+//! tileset with a different tile resolution (e.g. 32px instead of 64px)
+//! doesn't require changing the map's grid layout.
+//!
+//! `SCREEN_W`/`WINDOW_H` define the game's fixed *logical* resolution,
+//! rendered to an offscreen target and then scaled/letterboxed onto the
+//! actual (resizable) OS window by [`crate::viewport`].
 
 use crate::level::Level;
 use macroquad::prelude::*;
@@ -26,16 +36,16 @@ pub struct Map {
     /// The `Ground` layer's tile grid, `[row][col]`, holding each cell's
     /// local tile id within the tileset (or `None` for an empty cell).
     ground_tiles: Vec<Vec<Option<u32>>>,
+    /// Pixel size of one tile inside the tileset source image; see
+    /// [`crate::level::Level::source_tile_size`]. Used only to compute
+    /// the source `Rect` when cropping tiles for drawing - each cell is
+    /// still drawn at the fixed logical [`TILE`] size on screen.
+    source_tile_size: f32,
 }
 
 impl Map {
     /// Build the playable map from a loaded [`Level`].
     pub fn from_level(level: &Level) -> Self {
-        assert_eq!(
-            level.tile_size, TILE,
-            "level map tile size ({}) must match the game's TILE constant ({TILE})",
-            level.tile_size
-        );
         assert_eq!(
             level.cols as f32 * TILE,
             SCREEN_W,
@@ -53,11 +63,14 @@ impl Map {
             waypoints: level.waypoints.clone(),
             build_spots: level.build_spots.clone(),
             ground_tiles: level.ground_tiles.clone(),
+            source_tile_size: level.source_tile_size,
         }
     }
 
     /// Draw the hand-painted `Ground` layer using the level's tileset
     /// texture: a single row of square tiles, indexed by local tile id.
+    /// Each source tile (whatever pixel size the tileset image uses) is
+    /// scaled to fill one `TILE`-sized logical grid cell.
     pub fn draw(&self, tileset: &Texture2D) {
         for (row, tiles) in self.ground_tiles.iter().enumerate() {
             for (col, tile_id) in tiles.iter().enumerate() {
@@ -71,7 +84,12 @@ impl Map {
                     WHITE,
                     DrawTextureParams {
                         dest_size: Some(vec2(TILE, TILE)),
-                        source: Some(Rect::new(*id as f32 * TILE, 0.0, TILE, TILE)),
+                        source: Some(Rect::new(
+                            *id as f32 * self.source_tile_size,
+                            0.0,
+                            self.source_tile_size,
+                            self.source_tile_size,
+                        )),
                         ..Default::default()
                     },
                 );

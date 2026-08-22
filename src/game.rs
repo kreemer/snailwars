@@ -84,13 +84,19 @@ impl Game {
         }
     }
 
-    pub fn update(&mut self, real_dt: f32) {
+    /// `ui_mouse` and `world_mouse` are the mouse position converted to
+    /// logical UI coordinates (fixed, ignores zoom) and logical world
+    /// coordinates (follows zoom) respectively - see
+    /// [`crate::viewport::Viewport::to_ui_logical`] and
+    /// [`crate::viewport::Viewport::to_world_logical`]. This module
+    /// never needs to know about the real window size/zoom itself.
+    pub fn update(&mut self, real_dt: f32, ui_mouse: Vec2, world_mouse: Vec2) {
         if self.status != GameStatus::Playing {
             self.handle_restart_input();
             return;
         }
 
-        self.handle_input();
+        self.handle_input(ui_mouse, world_mouse);
         if is_key_pressed(KeyCode::Tab) {
             self.speed_index = (self.speed_index + 1) % SPEED_LEVELS.len();
         }
@@ -175,15 +181,14 @@ impl Game {
         }
     }
 
-    fn handle_input(&mut self) {
+    fn handle_input(&mut self, ui_mouse: Vec2, world_mouse: Vec2) {
         if !is_mouse_button_pressed(MouseButton::Left) {
             return;
         }
-        let mouse = Vec2::from(mouse_position());
 
-        // Tower selection buttons.
+        // Tower selection buttons (fixed UI, ignores zoom).
         for (kind, rect) in ui::tower_button_rects() {
-            if rect.contains(mouse) {
+            if rect.contains(ui_mouse) {
                 self.selected_tower = if self.selected_tower == Some(kind) {
                     None
                 } else {
@@ -194,20 +199,22 @@ impl Game {
         }
 
         // Start wave button.
-        if ui::start_wave_button_rect().contains(mouse) && !self.wave_active {
+        if ui::start_wave_button_rect().contains(ui_mouse) && !self.wave_active {
             self.start_next_wave();
             return;
         }
 
         // Speed toggle button.
-        if ui::speed_button_rect().contains(mouse) {
+        if ui::speed_button_rect().contains(ui_mouse) {
             self.speed_index = (self.speed_index + 1) % SPEED_LEVELS.len();
             return;
         }
 
-        // Placing a tower on the map.
+        // Placing a tower on the map (follows the zoomed world).
         if let Some(kind) = self.selected_tower {
-            if mouse.y < crate::map::TOP_BAR || mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H {
+            if world_mouse.y < crate::map::TOP_BAR
+                || world_mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H
+            {
                 return;
             }
             if self.gold < kind.cost() {
@@ -215,7 +222,7 @@ impl Game {
             }
             if let Some(spot_index) =
                 self.map
-                    .nearest_free_spot(mouse, &self.occupied, BUILD_CLICK_RADIUS)
+                    .nearest_free_spot(world_mouse, &self.occupied, BUILD_CLICK_RADIUS)
             {
                 self.gold -= kind.cost();
                 self.occupied[spot_index] = true;
@@ -247,7 +254,11 @@ impl Game {
         self.wave_active = true;
     }
 
-    pub fn draw(&self) {
+    /// Draw the zoomable world layer: map, towers, enemies, projectiles,
+    /// and the tower-placement range preview. `world_mouse` is the mouse
+    /// position in logical world coordinates (follows zoom); see
+    /// [`Self::update`].
+    pub fn draw_world(&self, world_mouse: Vec2) {
         clear_background(Color::new(0.05, 0.05, 0.05, 1.0));
         self.map.draw(&self.tileset);
         self.map
@@ -278,19 +289,25 @@ impl Game {
 
         // Range preview for the currently selected tower type, following the mouse.
         if let Some(kind) = self.selected_tower {
-            let mouse = Vec2::from(mouse_position());
-            if mouse.y >= crate::map::TOP_BAR && mouse.y <= crate::map::TOP_BAR + crate::map::PLAY_H
+            if world_mouse.y >= crate::map::TOP_BAR
+                && world_mouse.y <= crate::map::TOP_BAR + crate::map::PLAY_H
             {
                 draw_circle_lines(
-                    mouse.x,
-                    mouse.y,
+                    world_mouse.x,
+                    world_mouse.y,
                     kind.range(),
                     1.5,
                     Color::new(1.0, 1.0, 1.0, 0.5),
                 );
             }
         }
+    }
 
+    /// Draw the fixed (non-zoomable) UI layer: HUD, panel, and any
+    /// full-screen overlay message. Must be drawn with a transparent
+    /// background so the world layer shows through beneath it; see
+    /// [`crate::viewport::Viewport::begin_ui`].
+    pub fn draw_ui(&self) {
         ui::draw_hud(self.gold, self.lives, self.wave_number, self.waves.len() as u32);
         ui::draw_panel(
             self.gold,

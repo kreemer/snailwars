@@ -11,17 +11,19 @@ mod projectile;
 mod sprites;
 mod tower;
 mod ui;
+mod viewport;
 mod wave;
 
 use game::Game;
 use macroquad::prelude::*;
+use viewport::Viewport;
 
 fn window_conf() -> Conf {
     Conf {
         window_title: "Snail Wars".to_owned(),
         window_width: map::SCREEN_W as i32,
         window_height: map::WINDOW_H as i32,
-        window_resizable: false,
+        window_resizable: true,
         ..Default::default()
     }
 }
@@ -37,11 +39,26 @@ async fn main() {
     tileset.set_filter(FilterMode::Nearest);
 
     let mut game = Game::load(level_name, level, tileset);
+    let mut viewport = Viewport::new();
 
     loop {
         let dt = get_frame_time();
-        game.update(dt);
-        game.draw();
+        viewport.handle_zoom_input();
+        let screen_mouse = Vec2::from(mouse_position());
+        let ui_mouse = viewport.to_ui_logical(screen_mouse);
+        let world_mouse = viewport.to_world_logical(screen_mouse);
+
+        game.update(dt, ui_mouse, world_mouse);
+
+        viewport.begin_world();
+        game.draw_world(world_mouse);
+
+        viewport.begin_ui();
+        game.draw_ui();
+
+        viewport.present();
+
         next_frame().await;
     }
 }
+

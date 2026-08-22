@@ -162,7 +162,17 @@ pub struct Level {
     pub ground_tiles: Vec<Vec<Option<u32>>>,
     pub cols: usize,
     pub rows: usize,
+    /// Size (in world/screen pixels) of one gameplay grid cell, i.e.
+    /// [`crate::map::TILE`]. Waypoints and build spots are laid out in
+    /// units of this size.
     pub tile_size: f32,
+    /// Pixel size of one tile *inside the tileset source image*, read
+    /// from the `.tmx`'s `tilewidth`/`tileheight`. This is independent of
+    /// `tile_size`/[`crate::map::TILE`]: a 32px-tile tileset is scaled up
+    /// (or a larger one scaled down) to fill each `tile_size` grid cell
+    /// when drawn, so swapping tileset resolutions doesn't require the
+    /// map's logical grid to change.
+    pub source_tile_size: f32,
     /// Path to the tileset image, relative to the current working
     /// directory, to be loaded as a texture by the caller (texture loading
     /// is async in macroquad, so it can't happen inside this sync loader).
@@ -257,6 +267,15 @@ impl Level {
             .as_ref()
             .unwrap_or_else(|| panic!("tileset in '{tmx_path}' has no image"));
         let tileset_image_path = image.source.clone();
+        assert_eq!(
+            tileset.tile_width, tileset.tile_height,
+            "tileset in '{tmx_path}' must use square tiles"
+        );
+        // The tileset's own tile pixel size, independent of the map's
+        // grid `tile_size` above: a 32px-tile tileset image is scaled up
+        // to fill each `tile_size` grid cell (see `Map::draw`), so it
+        // doesn't need to match the map's logical grid size.
+        let source_tile_size = tileset.tile_width as f32;
 
         let wave_ron = std::fs::read_to_string(&waves_path)
             .unwrap_or_else(|e| panic!("failed to read wave file '{waves_path}': {e}"));
@@ -270,6 +289,7 @@ impl Level {
             cols,
             rows,
             tile_size,
+            source_tile_size,
             tileset_image_path,
             waves: wave_file.waves,
         }
