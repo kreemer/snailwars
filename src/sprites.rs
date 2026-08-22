@@ -18,7 +18,8 @@ pub struct Sprites {
     pub tower_salt: Texture2D,
     pub tower_death: Texture2D,
     pub projectile: Texture2D,
-    pub grass_tile: Texture2D,
+    /// Overlay marker drawn over unoccupied build spots; the ground art
+    /// itself comes from the level's Tiled tileset (see `crate::map`).
     pub build_spot: Texture2D,
 }
 
@@ -65,7 +66,6 @@ impl Sprites {
                 Color::new(1.0, 0.95, 0.4, 1.0),
                 Color::new(0.6, 0.55, 0.1, 1.0),
             ),
-            grass_tile: solid_texture(64, Color::new(0.16, 0.45, 0.16, 1.0)),
             build_spot: rounded_rect_texture(
                 48,
                 Color::new(0.3, 0.35, 0.3, 0.55),
@@ -142,9 +142,4 @@ fn inside_rounded_rect_margin(x: f32, y: f32, w: f32, h: f32, corner: f32, margi
         }
     }
     true
-}
-
-fn solid_texture(size: u16, color: Color) -> Texture2D {
-    let image = Image::gen_image_color(size, size, color);
-    Texture2D::from_image(&image)
 }

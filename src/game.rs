@@ -2,12 +2,13 @@
 //! loop that ties enemies, towers, and projectiles together.
 
 use crate::enemy::{Enemy, EnemyType};
+use crate::level::Level;
 use crate::map::Map;
 use crate::projectile::Projectile;
 use crate::sprites::Sprites;
 use crate::tower::{Tower, TowerType};
 use crate::ui;
-use crate::wave::{self, TOTAL_WAVES};
+use crate::wave::Wave;
 use macroquad::prelude::*;
 use std::collections::VecDeque;
 
@@ -31,6 +32,9 @@ struct PendingSpawn {
 pub struct Game {
     map: Map,
     sprites: Sprites,
+    tileset: Texture2D,
+    waves: Vec<Wave>,
+    level_name: &'static str,
 
     enemies: Vec<Enemy>,
     towers: Vec<Tower>,
@@ -51,12 +55,18 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new() -> Self {
-        let map = Map::new();
+    /// Build a fresh game from an already-loaded [`Level`] and its
+    /// tileset texture (texture loading is async in macroquad and must
+    /// happen before this constructor runs; see `main.rs`).
+    pub fn load(level_name: &'static str, level: Level, tileset: Texture2D) -> Self {
+        let map = Map::from_level(&level);
         let occupied = vec![false; map.build_spots.len()];
         Game {
             map,
             sprites: Sprites::generate(),
+            tileset,
+            waves: level.waves,
+            level_name,
             enemies: Vec::new(),
             towers: Vec::new(),
             projectiles: Vec::new(),
@@ -141,7 +151,7 @@ impl Game {
 
         if self.wave_active && self.spawn_queue.is_empty() && self.enemies.is_empty() {
             self.wave_active = false;
-            if self.wave_number >= TOTAL_WAVES {
+            if self.wave_number >= self.waves.len() as u32 {
                 self.status = GameStatus::Win;
             }
         }
@@ -217,17 +227,18 @@ impl Game {
 
     fn handle_restart_input(&mut self) {
         if is_key_pressed(KeyCode::R) {
-            *self = Game::new();
+            let level = Level::load(self.level_name);
+            *self = Game::load(self.level_name, level, self.tileset.clone());
         }
     }
 
     fn start_next_wave(&mut self) {
         self.wave_number += 1;
-        let wave = wave::build_wave(self.wave_number);
+        let wave = &self.waves[self.wave_number as usize - 1];
         self.spawn_timer = 0.0;
         self.spawn_queue = wave
             .spawns
-            .into_iter()
+            .iter()
             .map(|s| PendingSpawn {
                 kind: s.kind,
                 delay: s.delay_after_previous,
@@ -238,7 +249,7 @@ impl Game {
 
     pub fn draw(&self) {
         clear_background(Color::new(0.05, 0.05, 0.05, 1.0));
-        self.map.draw(&self.sprites.grass_tile);
+        self.map.draw(&self.tileset);
         self.map
             .draw_build_spots(&self.occupied, &self.sprites.build_spot);
 
@@ -280,7 +291,7 @@ impl Game {
             }
         }
 
-        ui::draw_hud(self.gold, self.lives, self.wave_number, TOTAL_WAVES);
+        ui::draw_hud(self.gold, self.lives, self.wave_number, self.waves.len() as u32);
         ui::draw_panel(
             self.gold,
             self.selected_tower,

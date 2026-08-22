@@ -2,8 +2,9 @@
 //! player's base.
 
 use macroquad::prelude::*;
+use serde::Deserialize;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize)]
 pub enum EnemyType {
     Snail,
     Slug,

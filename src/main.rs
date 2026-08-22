@@ -5,6 +5,7 @@
 
 mod enemy;
 mod game;
+mod level;
 mod map;
 mod projectile;
 mod sprites;
@@ -27,7 +28,15 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut game = Game::new();
+    let level_name = "level1";
+    let level = level::Level::load(level_name);
+    let tileset_path = level.tileset_image_path.clone();
+    let tileset = load_texture(tileset_path.to_str().expect("tileset path must be valid UTF-8"))
+        .await
+        .unwrap_or_else(|e| panic!("failed to load tileset texture '{}': {e}", tileset_path.display()));
+    tileset.set_filter(FilterMode::Nearest);
+
+    let mut game = Game::load(level_name, level, tileset);
 
     loop {
         let dt = get_frame_time();
