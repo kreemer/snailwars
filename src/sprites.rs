@@ -1,0 +1,150 @@
+//! Procedurally generated placeholder sprites.
+//!
+//! No external art assets exist yet, so every texture used by the game is
+//! built at startup by rasterizing simple shapes (circles / rounded
+//! rectangles) into an `Image` and uploading it as a `Texture2D`. Swapping
+//! in real artwork later only requires replacing the functions in this
+//! module - the rest of the game only depends on `Texture2D` handles.
+
+use macroquad::prelude::*;
+
+/// All textures used by the game, generated once at startup.
+pub struct Sprites {
+    pub snail: Texture2D,
+    pub slug: Texture2D,
+    pub big_snail: Texture2D,
+    pub tower_pebble: Texture2D,
+    pub tower_pepper: Texture2D,
+    pub tower_salt: Texture2D,
+    pub tower_death: Texture2D,
+    pub projectile: Texture2D,
+    pub grass_tile: Texture2D,
+    pub build_spot: Texture2D,
+}
+
+impl Sprites {
+    pub fn generate() -> Self {
+        Sprites {
+            snail: circle_texture(
+                28,
+                Color::new(0.85, 0.55, 0.2, 1.0),
+                Color::new(0.5, 0.3, 0.1, 1.0),
+            ),
+            slug: circle_texture(
+                24,
+                Color::new(0.6, 0.2, 0.7, 1.0),
+                Color::new(0.35, 0.1, 0.45, 1.0),
+            ),
+            big_snail: circle_texture(
+                40,
+                Color::new(0.8, 0.1, 0.1, 1.0),
+                Color::new(0.45, 0.05, 0.05, 1.0),
+            ),
+            tower_pebble: rounded_rect_texture(
+                32,
+                Color::new(0.55, 0.55, 0.6, 1.0),
+                Color::new(0.2, 0.2, 0.25, 1.0),
+            ),
+            tower_pepper: rounded_rect_texture(
+                32,
+                Color::new(0.9, 0.3, 0.1, 1.0),
+                Color::new(0.5, 0.15, 0.05, 1.0),
+            ),
+            tower_salt: rounded_rect_texture(
+                32,
+                Color::new(0.2, 0.5, 0.9, 1.0),
+                Color::new(0.1, 0.25, 0.5, 1.0),
+            ),
+            tower_death: rounded_rect_texture(
+                32,
+                Color::new(0.2, 1.0, 0.0, 1.0),
+                Color::new(0.1, 0.25, 0.5, 1.0),
+            ),
+            projectile: circle_texture(
+                8,
+                Color::new(1.0, 0.95, 0.4, 1.0),
+                Color::new(0.6, 0.55, 0.1, 1.0),
+            ),
+            grass_tile: solid_texture(64, Color::new(0.16, 0.45, 0.16, 1.0)),
+            build_spot: rounded_rect_texture(
+                48,
+                Color::new(0.3, 0.35, 0.3, 0.55),
+                Color::new(0.9, 0.9, 0.9, 0.8),
+            ),
+        }
+    }
+}
+
+fn circle_texture(size: u16, fill: Color, outline: Color) -> Texture2D {
+    let mut image = Image::gen_image_color(size, size, Color::new(0.0, 0.0, 0.0, 0.0));
+    let center = size as f32 / 2.0;
+    let radius = center - 1.0;
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 + 0.5 - center;
+            let dy = y as f32 + 0.5 - center;
+            let dist = (dx * dx + dy * dy).sqrt();
+            if dist <= radius {
+                let color = if dist >= radius - 2.0 { outline } else { fill };
+                image.set_pixel(x as u32, y as u32, color);
+            }
+        }
+    }
+    Texture2D::from_image(&image)
+}
+
+fn rounded_rect_texture(size: u16, fill: Color, outline: Color) -> Texture2D {
+    let mut image = Image::gen_image_color(size, size, Color::new(0.0, 0.0, 0.0, 0.0));
+    let corner = size as f32 * 0.25;
+    let w = size as f32;
+    for y in 0..size {
+        for x in 0..size {
+            let fx = x as f32 + 0.5;
+            let fy = y as f32 + 0.5;
+            if inside_rounded_rect(fx, fy, w, w, corner) {
+                let border = 2.0;
+                let is_border = !inside_rounded_rect_margin(fx, fy, w, w, corner, border);
+                image.set_pixel(x as u32, y as u32, if is_border { outline } else { fill });
+            }
+        }
+    }
+    Texture2D::from_image(&image)
+}
+
+fn inside_rounded_rect(x: f32, y: f32, w: f32, h: f32, corner: f32) -> bool {
+    inside_rounded_rect_margin(x, y, w, h, corner, 0.0)
+}
+
+fn inside_rounded_rect_margin(x: f32, y: f32, w: f32, h: f32, corner: f32, margin: f32) -> bool {
+    let x0 = margin;
+    let y0 = margin;
+    let x1 = w - margin;
+    let y1 = h - margin;
+    if x < x0 || x > x1 || y < y0 || y > y1 {
+        return false;
+    }
+    let c = corner;
+    let corners = [
+        (x0 + c, y0 + c),
+        (x1 - c, y0 + c),
+        (x0 + c, y1 - c),
+        (x1 - c, y1 - c),
+    ];
+    for (cx, cy) in corners {
+        let in_corner_zone = (x < cx && (cx - x0) > 0.0 && x < x0 + c) || (x > cx && x > x1 - c);
+        let in_corner_zone_y = (y < cy && y < y0 + c) || (y > cy && y > y1 - c);
+        if in_corner_zone && in_corner_zone_y {
+            let dx = x - cx;
+            let dy = y - cy;
+            if dx * dx + dy * dy > c * c {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn solid_texture(size: u16, color: Color) -> Texture2D {
+    let image = Image::gen_image_color(size, size, color);
+    Texture2D::from_image(&image)
+}
