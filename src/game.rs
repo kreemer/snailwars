@@ -125,7 +125,7 @@ impl Game {
                     target_id,
                     tower.kind.damage(),
                     tower.kind.splash_radius(),
-                    tower.kind.applies_debuf(),
+                    tower.kind.projectiles_effect(),
                 ));
                 tower.fire();
             }
@@ -136,6 +136,7 @@ impl Game {
             let hit = self.projectiles[i].update(dt, &self.enemies);
             if hit {
                 self.projectiles[i].apply_damage(&mut self.enemies);
+                self.projectiles[i].apply_effect(&mut self.enemies);
                 self.projectiles.remove(i);
             } else {
                 i += 1;
@@ -321,7 +322,12 @@ impl Game {
     /// background so the world layer shows through beneath it; see
     /// [`crate::viewport::Viewport::begin_ui`].
     pub fn draw_ui(&self) {
-        ui::draw_hud(self.gold, self.lives, self.wave_number, self.waves.len() as u32);
+        ui::draw_hud(
+            self.gold,
+            self.lives,
+            self.wave_number,
+            self.waves.len() as u32,
+        );
         ui::draw_panel(
             self.gold,
             self.selected_tower,

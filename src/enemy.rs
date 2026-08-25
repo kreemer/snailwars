@@ -1,8 +1,12 @@
 //! Enemies: snails and slugs that crawl along the fixed path toward the
 //! player's base.
 
+use std::collections::HashMap;
+
 use macroquad::prelude::*;
 use serde::Deserialize;
+
+use crate::tower::EffectType;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize)]
 pub enum EnemyType {
@@ -54,6 +58,7 @@ pub struct Enemy {
     pub waypoint_index: usize,
     /// Set to true once the enemy reaches the end of the path.
     pub reached_base: bool,
+    pub effects: HashMap<EffectType, f32>,
 }
 
 impl Enemy {
@@ -66,6 +71,7 @@ impl Enemy {
             speed: kind.speed(),
             waypoint_index: 1,
             reached_base: false,
+            effects: HashMap::new(),
         }
     }
 
@@ -83,7 +89,12 @@ impl Enemy {
         let target = waypoints[self.waypoint_index];
         let to_target = target - self.pos;
         let dist = to_target.length();
-        let step = self.speed * dt;
+
+        let mut speed = self.speed;
+        if self.effects.contains_key(&EffectType::Slow) {
+            speed = self.kind.speed() - self.kind.speed() / 25.0;
+        }
+        let step = speed * dt;
 
         if dist <= step {
             self.pos = target;
@@ -94,17 +105,30 @@ impl Enemy {
         } else {
             self.pos += to_target / dist * step;
         }
+
+        // update effect timer
+        for value in self.effects.values_mut() {
+            *value = *value - 0.1;
+        }
+        self.effects
+            .retain(|_, duration| if *duration < 0.0 { false } else { true });
     }
 
     pub fn draw(&self, texture: &Texture2D) {
         let r = self.kind.radius();
         let half_tex = texture.width() / 2.0;
         let scale = (r * 2.0) / texture.width();
+
+        let mut color = WHITE;
+        if self.effects.contains_key(&EffectType::Slow) {
+            color = BLUE;
+        }
+
         draw_texture_ex(
             texture,
             self.pos.x - r,
             self.pos.y - r,
-            WHITE,
+            color,
             DrawTextureParams {
                 dest_size: Some(vec2(texture.width() * scale, texture.height() * scale)),
                 ..Default::default()
@@ -132,10 +156,9 @@ impl Enemy {
         );
     }
 
-    pub(crate) fn apply_debuf(&mut self, arg: i32) -> () {
-        // if self.speed < self.kind.speed() {
-        //     return;
-        // }
-        // self.speed = self.speed / 10.0;
+    pub(crate) fn apply_effects(&mut self, effects: Vec<EffectType>) -> () {
+        for effect in effects {
+            self.effects.insert(effect, 10.0);
+        }
     }
 }

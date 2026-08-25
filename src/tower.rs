@@ -2,6 +2,7 @@
 
 use crate::enemy::Enemy;
 use macroquad::prelude::*;
+use serde::Deserialize;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TowerType {
@@ -9,6 +10,11 @@ pub enum TowerType {
     Pepper,
     Salt,
     CostDesTodes,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize, Hash)]
+pub enum EffectType {
+    Slow,
 }
 
 impl TowerType {
@@ -67,12 +73,10 @@ impl TowerType {
         }
     }
 
-    pub fn applies_debuf(self) -> bool {
+    pub fn projectiles_effect(self) -> Vec<EffectType> {
         match self {
-            TowerType::Pebble => false,
-            TowerType::Pepper => false,
-            TowerType::Salt => true,
-            TowerType::CostDesTodes => false,
+            TowerType::Salt => vec![EffectType::Slow],
+            _ => vec![],
         }
     }
 }

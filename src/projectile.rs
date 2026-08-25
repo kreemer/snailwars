@@ -1,7 +1,7 @@
 //! Projectiles fired by towers, homing toward a specific enemy (tracked by
 //! stable id, since the enemy vector is compacted each frame).
 
-use crate::enemy::Enemy;
+use crate::{enemy::Enemy, tower::EffectType};
 use macroquad::prelude::*;
 
 const PROJECTILE_SPEED: f32 = 420.0;
@@ -12,7 +12,7 @@ pub struct Projectile {
     pub target_id: u32,
     pub damage: f32,
     pub splash_radius: f32,
-    pub apply_debuf_in_radius: bool,
+    pub effects: Vec<EffectType>,
 }
 
 impl Projectile {
@@ -21,14 +21,14 @@ impl Projectile {
         target_id: u32,
         damage: f32,
         splash_radius: f32,
-        apply_debuf_in_radius: bool,
+        effects: Vec<EffectType>,
     ) -> Self {
         Projectile {
             pos,
             target_id,
             damage,
             splash_radius,
-            apply_debuf_in_radius,
+            effects,
         }
     }
 
@@ -62,7 +62,6 @@ impl Projectile {
         if self.splash_radius <= 0.0 {
             if let Some(enemy) = enemies.iter_mut().find(|e| e.id == self.target_id) {
                 enemy.hp -= self.damage;
-                enemy.speed = enemy.speed + enemy.speed / 30.0;
             }
             return;
         }
@@ -75,10 +74,29 @@ impl Projectile {
             for enemy in enemies.iter_mut() {
                 if (enemy.pos - center).length() <= self.splash_radius {
                     enemy.hp -= self.damage;
-                    enemy.speed = enemy.speed + enemy.speed / 10.0;
-                    // if self.apply_debuf_in_radius {
-                    //     enemy.apply_debuf(1);
-                    // }
+                }
+            }
+        }
+    }
+
+    /// Apply effect to the target, and to any nearby enemies if this
+    /// projectile has a splash radius.
+    pub fn apply_effect(&self, enemies: &mut [Enemy]) {
+        if self.splash_radius <= 0.0 {
+            if let Some(enemy) = enemies.iter_mut().find(|e| e.id == self.target_id) {
+                enemy.apply_effects(self.effects.clone());
+            }
+            return;
+        }
+
+        let impact_pos = enemies
+            .iter()
+            .find(|e| e.id == self.target_id)
+            .map(|e| e.pos);
+        if let Some(center) = impact_pos {
+            for enemy in enemies.iter_mut() {
+                if (enemy.pos - center).length() <= self.splash_radius {
+                    enemy.apply_effects(self.effects.clone());
                 }
             }
         }
