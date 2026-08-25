@@ -1,31 +1,74 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="15" height="10" tilewidth="64" tileheight="64" infinite="0" nextlayerid="3" nextobjectid="1">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="15" height="10" tilewidth="32" tileheight="32" infinite="0" nextlayerid="5" nextobjectid="1">
  <tileset firstgid="1" source="../tilesets/tiles.tsx"/>
- <layer id="1" name="Ground" width="15" height="10">
+ <tileset firstgid="6" name="Test" tilewidth="32" tileheight="32" tilecount="855" columns="19">
+  <image source="../tilesets/Serene_Village_32x32.png" width="608" height="1440"/>
+ </tileset>
+ <tileset firstgid="861" name="tiles2" tilewidth="32" tileheight="32" tilecount="5" columns="5">
+  <properties>
+   <property name="kind" value="build"/>
+  </properties>
+  <image source="../tilesets/tiles.png" width="160" height="32"/>
+  <tile id="1">
+   <properties>
+    <property name="kind" value="path"/>
+   </properties>
+  </tile>
+  <tile id="2">
+   <properties>
+    <property name="kind" value="build"/>
+   </properties>
+  </tile>
+  <tile id="3">
+   <properties>
+    <property name="kind" value="start"/>
+   </properties>
+  </tile>
+  <tile id="4">
+   <properties>
+    <property name="kind" value="end"/>
+   </properties>
+  </tile>
+ </tileset>
+ <layer id="1" name="Ground" width="15" height="10" locked="1">
   <data encoding="csv">
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,2,2,2,2,2,2,2,2,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,
-1,1,2,2,2,2,2,2,2,2,2,2,2,2,1,
-1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,2,2,2,2,2,2,2,2,2,2,2,2,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,
+54,31,32,32,32,32,32,32,32,32,32,33,33,34,54,
+54,50,51,51,51,51,51,51,51,51,51,52,52,53,54,
+54,50,51,51,51,51,51,51,51,51,51,51,51,53,54,
+54,69,70,70,70,70,70,70,70,71,47,51,51,53,54,
+31,32,32,32,32,32,32,32,32,33,28,51,51,53,54,
+50,51,51,51,51,51,51,51,51,51,51,51,51,53,54,
+50,51,51,51,51,51,51,51,51,51,51,51,51,53,54,
+69,70,71,71,71,71,71,71,71,71,71,71,71,72,54,
+54,54,54,54,54,54,54,54,54,54,54,54,54,54,54
 </data>
  </layer>
- <layer id="2" name="Logic" width="15" height="10" visible="0">
+ <layer id="4" name="Env" width="15" height="10">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-4,2,2,2,2,2,2,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,2,0,3,0,0,3,0,0,0,
-0,3,0,0,3,0,2,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,2,2,2,2,2,2,2,2,0,
-0,3,0,0,0,0,0,0,0,0,0,0,0,2,0,
-0,0,2,2,2,2,2,2,2,2,2,2,2,2,0,
-0,3,2,3,0,0,3,0,0,3,0,3,0,0,0,
-0,0,2,2,2,2,2,2,2,2,2,2,2,5,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,280,0,0,0,0,0,0,
+0,0,238,0,0,0,0,0,0,0,0,0,0,0,0,
+785,786,787,788,789,0,0,0,0,0,0,0,0,0,0,
+804,805,806,807,808,0,0,0,0,0,0,0,0,0,0,
+823,824,825,826,827,0,0,0,0,317,0,0,0,0,0,
+842,843,844,845,846,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+</data>
+ </layer>
+ <layer id="3" name="Logic" width="15" height="10">
+  <data encoding="csv">
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,863,0,0,0,863,0,863,0,0,
+0,0,0,864,862,862,862,862,862,862,862,862,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,862,863,0,0,
+0,0,0,0,0,0,0,0,0,0,0,862,0,0,0,
+0,0,0,0,0,863,0,0,863,0,0,862,863,0,0,
+0,0,865,862,862,862,862,862,862,862,862,862,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>

@@ -1,14 +1,18 @@
-//! Procedurally generated placeholder sprites.
+//! Sprites used by the game.
 //!
-//! No external art assets exist yet, so every texture used by the game is
-//! built at startup by rasterizing simple shapes (circles / rounded
-//! rectangles) into an `Image` and uploading it as a `Texture2D`. Swapping
-//! in real artwork later only requires replacing the functions in this
-//! module - the rest of the game only depends on `Texture2D` handles.
+//! Enemy art (`snail`, `slug`, `big_snail`) is loaded from PNG files in
+//! `assets/enemy/`, generated ahead of time by `assets/enemy/generate.py`
+//! - original artwork inspired by hand-drawn crayon sketches (see
+//! `assets/enemy/raw/` for the reference photos), rendered with a
+//! transparent background. Everything else (towers, projectile, build
+//! spot overlay) has no art yet, so it is still built at startup by
+//! rasterizing simple shapes (circles / rounded rectangles) into an
+//! `Image` and uploading it as a `Texture2D`.
 
 use macroquad::prelude::*;
 
-/// All textures used by the game, generated once at startup.
+/// All textures used by the game, loaded/generated once at startup.
+#[derive(Clone)]
 pub struct Sprites {
     pub snail: Texture2D,
     pub slug: Texture2D,
@@ -24,7 +28,19 @@ pub struct Sprites {
 }
 
 impl Sprites {
-    pub fn generate() -> Self {
+    /// Loads enemy art from disk and generates the remaining placeholder
+    /// textures. Texture loading is async in macroquad, so this must be
+    /// awaited before starting the game (see `main.rs`).
+    pub async fn load() -> Self {
+        Sprites {
+            snail: load_enemy_texture("snail").await,
+            slug: load_enemy_texture("slug").await,
+            big_snail: load_enemy_texture("big_snail").await,
+            ..Self::generate_placeholders()
+        }
+    }
+
+    fn generate_placeholders() -> Self {
         Sprites {
             snail: circle_texture(
                 28,
@@ -73,6 +89,18 @@ impl Sprites {
             ),
         }
     }
+}
+
+/// Loads an enemy texture from `assets/enemy/{name}.png`, panicking with
+/// a clear message if it's missing (same failure style as the tileset
+/// load in `main.rs`).
+async fn load_enemy_texture(name: &str) -> Texture2D {
+    let path = format!("assets/enemy/{name}.png");
+    let texture = load_texture(&path)
+        .await
+        .unwrap_or_else(|e| panic!("failed to load enemy texture '{path}': {e}"));
+    texture.set_filter(FilterMode::Linear);
+    texture
 }
 
 fn circle_texture(size: u16, fill: Color, outline: Color) -> Texture2D {

@@ -152,31 +152,53 @@ fn neighbors(cell: Cell) -> [Cell; 4] {
     [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
 }
 
+/// A single painted cell referencing a tile from one of the map's
+/// tilesets (a map may mix tiles from several tilesets in one layer).
+#[derive(Clone, Copy, Debug)]
+pub struct PaintedTile {
+    /// Index into [`Level::tilesets`].
+    pub tileset_index: usize,
+    /// Local tile id within that tileset.
+    pub local_id: u32,
+}
+
+/// One source tileset image referenced by the map, with the geometry
+/// needed to crop an individual tile out of it.
+#[derive(Clone, Debug)]
+pub struct TilesetInfo {
+    /// Path to the tileset image, relative to the current working
+    /// directory, to be loaded as a texture by the caller (texture
+    /// loading is async in macroquad, so it can't happen inside this
+    /// sync loader).
+    pub image_path: PathBuf,
+    /// Pixel size of one (square) tile inside the source image.
+    pub tile_size: f32,
+    /// Number of tile columns in the source image, used to turn a local
+    /// tile id into a (row, col) position within the image.
+    pub columns: u32,
+}
+
 /// Everything needed to build the playable [`crate::map::Map`] for a
 /// level, plus its hand-authored waves.
 pub struct Level {
     pub waypoints: Vec<Vec2>,
     pub build_spots: Vec<Vec2>,
-    /// The `Ground` layer's tile grid, `[row][col]`, holding each cell's
-    /// local tile id within the tileset (or `None` for an empty cell).
-    pub ground_tiles: Vec<Vec<Option<u32>>>,
+    /// The `Ground` layer's tile grid, `[row][col]` (or `None` for an
+    /// empty cell).
+    pub ground_tiles: Vec<Vec<Option<PaintedTile>>>,
+    /// The optional `Env` layer's tile grid, `[row][col]`, drawn on top
+    /// of `Ground` (or `None` for an empty cell). Empty if the map has
+    /// no `Env` layer.
+    pub env_tiles: Vec<Vec<Option<PaintedTile>>>,
     pub cols: usize,
     pub rows: usize,
     /// Size (in world/screen pixels) of one gameplay grid cell, i.e.
     /// [`crate::map::TILE`]. Waypoints and build spots are laid out in
     /// units of this size.
     pub tile_size: f32,
-    /// Pixel size of one tile *inside the tileset source image*, read
-    /// from the `.tmx`'s `tilewidth`/`tileheight`. This is independent of
-    /// `tile_size`/[`crate::map::TILE`]: a 32px-tile tileset is scaled up
-    /// (or a larger one scaled down) to fill each `tile_size` grid cell
-    /// when drawn, so swapping tileset resolutions doesn't require the
-    /// map's logical grid to change.
-    pub source_tile_size: f32,
-    /// Path to the tileset image, relative to the current working
-    /// directory, to be loaded as a texture by the caller (texture loading
-    /// is async in macroquad, so it can't happen inside this sync loader).
-    pub tileset_image_path: PathBuf,
+    /// Every tileset referenced by the map, indexed by
+    /// [`PaintedTile::tileset_index`].
+    pub tilesets: Vec<TilesetInfo>,
     pub waves: Vec<Wave>,
 }
 
@@ -214,11 +236,15 @@ impl Level {
 
         let cols = map.width as usize;
         let rows = map.height as usize;
-        let tile_size = map.tile_width as f32;
-        assert_eq!(
-            map.tile_width, map.tile_height,
-            "map '{tmx_path}' must use square tiles"
-        );
+        // Gameplay coordinates (waypoints, build spots) always use the
+        // game's fixed logical grid size, `crate::map::TILE` - not the
+        // map file's own `tilewidth`/`tileheight`. Tiled's per-map tile
+        // size is just the grid Tiled displays while painting (and may
+        // match whatever tileset image resolution was used most
+        // recently), so it can legitimately differ from `TILE` without
+        // affecting anything drawn (each tileset's own tile pixel size,
+        // read separately below, is what controls source-image cropping).
+        let tile_size = crate::map::TILE;
 
         let mut cells: HashMap<Cell, TileKind> = HashMap::new();
         for y in 0..rows as i32 {
@@ -250,32 +276,43 @@ impl Level {
             .map(|(c, _)| cell_center(*c, tile_size))
             .collect();
 
-        let mut ground_tiles = vec![vec![None; cols]; rows];
-        for y in 0..rows as i32 {
-            for x in 0..cols as i32 {
-                ground_tiles[y as usize][x as usize] =
-                    ground_tile_layer.get_tile(x, y).map(|t| t.id());
-            }
-        }
-
-        let tileset = map
+        // A map may mix tiles from several tilesets in one layer (e.g. a
+        // small hand-authored tileset for gameplay-relevant tiles plus a
+        // larger imported tileset for decorative ones), so every tileset
+        // the map declares is loaded up front and each painted cell keeps
+        // track of which one (and which local id within it) it uses.
+        let tilesets: Vec<TilesetInfo> = map
             .tilesets()
-            .first()
-            .unwrap_or_else(|| panic!("map '{tmx_path}' has no tileset"));
-        let image = tileset
-            .image
-            .as_ref()
-            .unwrap_or_else(|| panic!("tileset in '{tmx_path}' has no image"));
-        let tileset_image_path = image.source.clone();
-        assert_eq!(
-            tileset.tile_width, tileset.tile_height,
-            "tileset in '{tmx_path}' must use square tiles"
-        );
-        // The tileset's own tile pixel size, independent of the map's
-        // grid `tile_size` above: a 32px-tile tileset image is scaled up
-        // to fill each `tile_size` grid cell (see `Map::draw`), so it
-        // doesn't need to match the map's logical grid size.
-        let source_tile_size = tileset.tile_width as f32;
+            .iter()
+            .map(|tileset| {
+                let image = tileset
+                    .image
+                    .as_ref()
+                    .unwrap_or_else(|| panic!("tileset '{}' in '{tmx_path}' has no image", tileset.name));
+                assert_eq!(
+                    tileset.tile_width, tileset.tile_height,
+                    "tileset '{}' in '{tmx_path}' must use square tiles",
+                    tileset.name
+                );
+                TilesetInfo {
+                    image_path: image.source.clone(),
+                    tile_size: tileset.tile_width as f32,
+                    columns: tileset.columns,
+                }
+            })
+            .collect();
+
+        let ground_tiles = read_painted_layer(&ground_tile_layer, cols, rows);
+
+        let env_tiles = match map.layers().find(|l| l.name == "Env") {
+            Some(env_layer) => {
+                let env_tile_layer = env_layer
+                    .as_tile_layer()
+                    .unwrap_or_else(|| panic!("'Env' layer in '{tmx_path}' is not a tile layer"));
+                read_painted_layer(&env_tile_layer, cols, rows)
+            }
+            None => vec![vec![None; cols]; rows],
+        };
 
         let wave_ron = std::fs::read_to_string(&waves_path)
             .unwrap_or_else(|e| panic!("failed to read wave file '{waves_path}': {e}"));
@@ -286,14 +323,33 @@ impl Level {
             waypoints,
             build_spots,
             ground_tiles,
+            env_tiles,
             cols,
             rows,
             tile_size,
-            source_tile_size,
-            tileset_image_path,
+            tilesets,
             waves: wave_file.waves,
         }
     }
+}
+
+/// Read a tile layer into a `[row][col]` grid of [`PaintedTile`]s, keeping
+/// each cell's originating tileset index alongside its local tile id.
+fn read_painted_layer(
+    layer: &tiled::TileLayer,
+    cols: usize,
+    rows: usize,
+) -> Vec<Vec<Option<PaintedTile>>> {
+    let mut tiles = vec![vec![None; cols]; rows];
+    for y in 0..rows as i32 {
+        for x in 0..cols as i32 {
+            tiles[y as usize][x as usize] = layer.get_tile(x, y).map(|t| PaintedTile {
+                tileset_index: t.tileset_index(),
+                local_id: t.id(),
+            });
+        }
+    }
+    tiles
 }
 
 fn tile_kind(tile: &tiled::Tile) -> Option<TileKind> {

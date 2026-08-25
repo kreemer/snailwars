@@ -32,7 +32,9 @@ struct PendingSpawn {
 pub struct Game {
     map: Map,
     sprites: Sprites,
-    tileset: Texture2D,
+    /// One loaded texture per entry in [`Level::tilesets`], in the same
+    /// order; see [`crate::map::Map::draw`].
+    tileset_textures: Vec<Texture2D>,
     waves: Vec<Wave>,
     level_name: &'static str,
 
@@ -55,16 +57,22 @@ pub struct Game {
 }
 
 impl Game {
-    /// Build a fresh game from an already-loaded [`Level`] and its
-    /// tileset texture (texture loading is async in macroquad and must
+    /// Build a fresh game from an already-loaded [`Level`], its tileset
+    /// textures (one per [`Level::tilesets`] entry, in order), and its
+    /// enemy/UI sprites (texture loading is async in macroquad and must
     /// happen before this constructor runs; see `main.rs`).
-    pub fn load(level_name: &'static str, level: Level, tileset: Texture2D) -> Self {
+    pub fn load(
+        level_name: &'static str,
+        level: Level,
+        tileset_textures: Vec<Texture2D>,
+        sprites: Sprites,
+    ) -> Self {
         let map = Map::from_level(&level);
         let occupied = vec![false; map.build_spots.len()];
         Game {
             map,
-            sprites: Sprites::generate(),
-            tileset,
+            sprites,
+            tileset_textures,
             waves: level.waves,
             level_name,
             enemies: Vec::new(),
@@ -235,7 +243,12 @@ impl Game {
     fn handle_restart_input(&mut self) {
         if is_key_pressed(KeyCode::R) {
             let level = Level::load(self.level_name);
-            *self = Game::load(self.level_name, level, self.tileset.clone());
+            *self = Game::load(
+                self.level_name,
+                level,
+                self.tileset_textures.clone(),
+                self.sprites.clone(),
+            );
         }
     }
 
@@ -260,7 +273,7 @@ impl Game {
     /// [`Self::update`].
     pub fn draw_world(&self, world_mouse: Vec2) {
         clear_background(Color::new(0.05, 0.05, 0.05, 1.0));
-        self.map.draw(&self.tileset);
+        self.map.draw(&self.tileset_textures);
         self.map
             .draw_build_spots(&self.occupied, &self.sprites.build_spot);
 

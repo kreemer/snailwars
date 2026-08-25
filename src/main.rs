@@ -16,6 +16,7 @@ mod wave;
 
 use game::Game;
 use macroquad::prelude::*;
+use sprites::Sprites;
 use viewport::Viewport;
 
 fn window_conf() -> Conf {
@@ -32,13 +33,18 @@ fn window_conf() -> Conf {
 async fn main() {
     let level_name = "level1";
     let level = level::Level::load(level_name);
-    let tileset_path = level.tileset_image_path.clone();
-    let tileset = load_texture(tileset_path.to_str().expect("tileset path must be valid UTF-8"))
-        .await
-        .unwrap_or_else(|e| panic!("failed to load tileset texture '{}': {e}", tileset_path.display()));
-    tileset.set_filter(FilterMode::Nearest);
+    let mut tileset_textures = Vec::with_capacity(level.tilesets.len());
+    for tileset in &level.tilesets {
+        let path = tileset.image_path.to_str().expect("tileset path must be valid UTF-8");
+        let texture = load_texture(path)
+            .await
+            .unwrap_or_else(|e| panic!("failed to load tileset texture '{path}': {e}"));
+        texture.set_filter(FilterMode::Nearest);
+        tileset_textures.push(texture);
+    }
 
-    let mut game = Game::load(level_name, level, tileset);
+    let sprites = Sprites::load().await;
+    let mut game = Game::load(level_name, level, tileset_textures, sprites);
     let mut viewport = Viewport::new();
 
     loop {

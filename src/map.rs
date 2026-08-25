@@ -20,7 +20,7 @@
 //! rendered to an offscreen target and then scaled/letterboxed onto the
 //! actual (resizable) OS window by [`crate::viewport`].
 
-use crate::level::Level;
+use crate::level::{Level, PaintedTile, TilesetInfo};
 use macroquad::prelude::*;
 
 pub const SCREEN_W: f32 = 960.0;
@@ -33,14 +33,17 @@ pub const TILE: f32 = 64.0;
 pub struct Map {
     pub waypoints: Vec<Vec2>,
     pub build_spots: Vec<Vec2>,
-    /// The `Ground` layer's tile grid, `[row][col]`, holding each cell's
-    /// local tile id within the tileset (or `None` for an empty cell).
-    ground_tiles: Vec<Vec<Option<u32>>>,
-    /// Pixel size of one tile inside the tileset source image; see
-    /// [`crate::level::Level::source_tile_size`]. Used only to compute
-    /// the source `Rect` when cropping tiles for drawing - each cell is
+    /// The `Ground` layer's tile grid, `[row][col]` (or `None` for an
+    /// empty cell).
+    ground_tiles: Vec<Vec<Option<PaintedTile>>>,
+    /// The `Env` layer's tile grid, `[row][col]`, drawn on top of
+    /// `Ground` (or `None` for an empty cell).
+    env_tiles: Vec<Vec<Option<PaintedTile>>>,
+    /// Every tileset referenced by the map; see
+    /// [`crate::level::Level::tilesets`]. Used only to compute each
+    /// tile's source `Rect` when cropping it for drawing - each cell is
     /// still drawn at the fixed logical [`TILE`] size on screen.
-    source_tile_size: f32,
+    tilesets: Vec<TilesetInfo>,
 }
 
 impl Map {
@@ -63,32 +66,46 @@ impl Map {
             waypoints: level.waypoints.clone(),
             build_spots: level.build_spots.clone(),
             ground_tiles: level.ground_tiles.clone(),
-            source_tile_size: level.source_tile_size,
+            env_tiles: level.env_tiles.clone(),
+            tilesets: level.tilesets.clone(),
         }
     }
 
-    /// Draw the hand-painted `Ground` layer using the level's tileset
-    /// texture: a single row of square tiles, indexed by local tile id.
-    /// Each source tile (whatever pixel size the tileset image uses) is
+    /// Draw the hand-painted `Ground` layer, then the `Env` layer on top
+    /// of it, using `textures` (one loaded [`Texture2D`] per entry in
+    /// [`Level::tilesets`], in the same order - see `main.rs`). Each
+    /// source tile (whatever pixel size its own tileset image uses) is
     /// scaled to fill one `TILE`-sized logical grid cell.
-    pub fn draw(&self, tileset: &Texture2D) {
-        for (row, tiles) in self.ground_tiles.iter().enumerate() {
-            for (col, tile_id) in tiles.iter().enumerate() {
-                let Some(id) = tile_id else { continue };
+    pub fn draw(&self, textures: &[Texture2D]) {
+        Self::draw_layer(&self.ground_tiles, &self.tilesets, textures);
+        Self::draw_layer(&self.env_tiles, &self.tilesets, textures);
+    }
+
+    fn draw_layer(
+        layer: &[Vec<Option<PaintedTile>>],
+        tilesets: &[TilesetInfo],
+        textures: &[Texture2D],
+    ) {
+        for (row, tiles) in layer.iter().enumerate() {
+            for (col, tile) in tiles.iter().enumerate() {
+                let Some(tile) = tile else { continue };
+                let tileset = &tilesets[tile.tileset_index];
                 let dest_x = col as f32 * TILE;
                 let dest_y = row as f32 * TILE + TOP_BAR;
+                let src_col = (tile.local_id % tileset.columns) as f32;
+                let src_row = (tile.local_id / tileset.columns) as f32;
                 draw_texture_ex(
-                    tileset,
+                    &textures[tile.tileset_index],
                     dest_x,
                     dest_y,
                     WHITE,
                     DrawTextureParams {
                         dest_size: Some(vec2(TILE, TILE)),
                         source: Some(Rect::new(
-                            *id as f32 * self.source_tile_size,
-                            0.0,
-                            self.source_tile_size,
-                            self.source_tile_size,
+                            src_col * tileset.tile_size,
+                            src_row * tileset.tile_size,
+                            tileset.tile_size,
+                            tileset.tile_size,
                         )),
                         ..Default::default()
                     },
