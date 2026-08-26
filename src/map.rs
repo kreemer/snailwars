@@ -44,21 +44,24 @@ pub struct Map {
     /// tile's source `Rect` when cropping it for drawing - each cell is
     /// still drawn at the fixed logical [`TILE`] size on screen.
     tilesets: Vec<TilesetInfo>,
+    /// Full map size in world pixels (`cols * TILE`, `rows * TILE`). May
+    /// be larger than the fixed `SCREEN_W x PLAY_H` play area, in which
+    /// case [`crate::viewport::Viewport`] scrolls the camera to show the
+    /// rest of the map instead of shrinking it to fit.
+    world_size: Vec2,
 }
 
 impl Map {
     /// Build the playable map from a loaded [`Level`].
     pub fn from_level(level: &Level) -> Self {
-        assert_eq!(
-            level.cols as f32 * TILE,
-            SCREEN_W,
-            "level map width ({} cols) must fill the {SCREEN_W}-wide play area",
+        assert!(
+            level.cols as f32 * TILE >= SCREEN_W,
+            "level map width ({} cols) is narrower than the {SCREEN_W}-wide play area",
             level.cols
         );
-        assert_eq!(
-            level.rows as f32 * TILE,
-            PLAY_H,
-            "level map height ({} rows) must fill the {PLAY_H}-tall play area",
+        assert!(
+            level.rows as f32 * TILE >= PLAY_H,
+            "level map height ({} rows) is shorter than the {PLAY_H}-tall play area",
             level.rows
         );
 
@@ -68,7 +71,15 @@ impl Map {
             ground_tiles: level.ground_tiles.clone(),
             env_tiles: level.env_tiles.clone(),
             tilesets: level.tilesets.clone(),
+            world_size: vec2(level.cols as f32 * TILE, level.rows as f32 * TILE),
         }
+    }
+
+    /// Full map size in world pixels (`cols * TILE`, `rows * TILE`), used
+    /// by [`crate::viewport::Viewport`] to clamp how far the camera may
+    /// scroll when the map is larger than the fixed play area.
+    pub fn world_size(&self) -> Vec2 {
+        self.world_size
     }
 
     /// Draw the hand-painted `Ground` layer, then the `Env` layer on top

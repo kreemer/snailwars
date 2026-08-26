@@ -92,6 +92,12 @@ impl Game {
         }
     }
 
+    /// Full map size in world pixels; see [`crate::map::Map::world_size`].
+    /// Used by [`crate::viewport::Viewport`] to clamp camera scrolling.
+    pub fn world_size(&self) -> Vec2 {
+        self.map.world_size()
+    }
+
     /// `ui_mouse` and `world_mouse` are the mouse position converted to
     /// logical UI coordinates (fixed, ignores zoom) and logical world
     /// coordinates (follows zoom) respectively - see
@@ -219,10 +225,15 @@ impl Game {
             return;
         }
 
-        // Placing a tower on the map (follows the zoomed world).
+        // Placing a tower on the map (follows the zoomed/scrolled world).
+        // Whether the cursor is over the play area (vs. the HUD/panel
+        // bars) is a fixed on-screen question, so it must be checked
+        // against `ui_mouse`, not `world_mouse` - the latter is in
+        // absolute map coordinates, which can well exceed `PLAY_H` once
+        // the camera has scrolled or zoomed out.
         if let Some(kind) = self.selected_tower {
-            if world_mouse.y < crate::map::TOP_BAR
-                || world_mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H
+            if ui_mouse.y < crate::map::TOP_BAR
+                || ui_mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H
             {
                 return;
             }
@@ -269,10 +280,10 @@ impl Game {
     }
 
     /// Draw the zoomable world layer: map, towers, enemies, projectiles,
-    /// and the tower-placement range preview. `world_mouse` is the mouse
-    /// position in logical world coordinates (follows zoom); see
+    /// and the tower-placement range preview. `ui_mouse`/`world_mouse`
+    /// are the mouse position in logical UI/world coordinates; see
     /// [`Self::update`].
-    pub fn draw_world(&self, world_mouse: Vec2) {
+    pub fn draw_world(&self, ui_mouse: Vec2, world_mouse: Vec2) {
         clear_background(Color::new(0.05, 0.05, 0.05, 1.0));
         self.map.draw(&self.tileset_textures);
         self.map
@@ -301,10 +312,13 @@ impl Game {
             projectile.draw(&self.sprites.projectile);
         }
 
-        // Range preview for the currently selected tower type, following the mouse.
+        // Range preview for the currently selected tower type, following
+        // the mouse. Whether the cursor is over the play area is a
+        // fixed on-screen question - check `ui_mouse`, not `world_mouse`
+        // (see the matching check in `handle_input`).
         if let Some(kind) = self.selected_tower {
-            if world_mouse.y >= crate::map::TOP_BAR
-                && world_mouse.y <= crate::map::TOP_BAR + crate::map::PLAY_H
+            if ui_mouse.y >= crate::map::TOP_BAR
+                && ui_mouse.y <= crate::map::TOP_BAR + crate::map::PLAY_H
             {
                 draw_circle_lines(
                     world_mouse.x,

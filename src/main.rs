@@ -46,10 +46,12 @@ async fn main() {
     let sprites = Sprites::load().await;
     let mut game = Game::load(level_name, level, tileset_textures, sprites);
     let mut viewport = Viewport::new();
+    viewport.set_world_bounds(game.world_size());
 
     loop {
         let dt = get_frame_time();
         viewport.handle_zoom_input();
+        viewport.handle_scroll_input(dt);
         let screen_mouse = Vec2::from(mouse_position());
         let ui_mouse = viewport.to_ui_logical(screen_mouse);
         let world_mouse = viewport.to_world_logical(screen_mouse);
@@ -57,7 +59,7 @@ async fn main() {
         game.update(dt, ui_mouse, world_mouse);
 
         viewport.begin_world();
-        game.draw_world(world_mouse);
+        game.draw_world(ui_mouse, world_mouse);
 
         viewport.begin_ui();
         game.draw_ui();
