@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use macroquad::prelude::*;
 use serde::Deserialize;
 
+use crate::sprites::Direction;
 use crate::tower::EffectType;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize)]
@@ -59,6 +60,7 @@ pub struct Enemy {
     /// Set to true once the enemy reaches the end of the path.
     pub reached_base: bool,
     pub effects: HashMap<EffectType, f32>,
+    pub direction: Direction,
 }
 
 impl Enemy {
@@ -72,6 +74,7 @@ impl Enemy {
             waypoint_index: 1,
             reached_base: false,
             effects: HashMap::new(),
+            direction: Direction::RIGHT,
         }
     }
 
@@ -86,8 +89,19 @@ impl Enemy {
             self.reached_base = true;
             return;
         }
+
         let target = waypoints[self.waypoint_index];
         let to_target = target - self.pos;
+
+        // Update direction of enemy
+        //
+        self.direction = match (to_target[1] > 0.0, to_target[0] > 0.0) {
+            (true, false) => Direction::BOTTOM,
+            (false, true) => Direction::RIGHT,
+            (true, true) => Direction::TOP,
+            (false, false) => Direction::LEFT,
+        };
+
         let dist = to_target.length();
 
         let mut speed = self.speed;
@@ -124,6 +138,18 @@ impl Enemy {
             color = BLUE;
         }
 
+        let flip_y = match self.direction {
+            Direction::LEFT => true,
+            _ => false,
+        };
+
+        let rotation = match self.direction {
+            Direction::TOP => -1.57,
+            Direction::BOTTOM => 1.57,
+            Direction::LEFT => 2.0*1.57,
+            _ => 0.0,
+        };
+
         draw_texture_ex(
             texture,
             self.pos.x - r,
@@ -131,6 +157,8 @@ impl Enemy {
             color,
             DrawTextureParams {
                 dest_size: Some(vec2(texture.width() * scale, texture.height() * scale)),
+                flip_y,
+                rotation,
                 ..Default::default()
             },
         );

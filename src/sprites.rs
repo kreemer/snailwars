@@ -11,6 +11,13 @@
 
 use macroquad::prelude::*;
 
+pub enum Direction {
+    TOP,
+    RIGHT,
+    BOTTOM,
+    LEFT
+}
+
 /// All textures used by the game, loaded/generated once at startup.
 #[derive(Clone)]
 pub struct Sprites {
