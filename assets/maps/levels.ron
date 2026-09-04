@@ -4,5 +4,7 @@
 (
     levels: [
         (id: "level1", name: "The Garden Path"),
+        (id: "level2", name: "Greenhouse Alley"),
+        (id: "level3", name: "The Compost Maze"),
     ],
 )

@@ -40,9 +40,10 @@ Delete that file to reset all unlocks.
 
 | Tower           | Cost | Damage | Range | Fire rate | Notes           |
 |-----------------|------|--------|-------|-----------|-----------------|
-| Pebble Turret   | 50g  | 12     | 120   | 1.0/s     | Balanced        |
-| Pepper Sprayer  | 75g  | 3      | 90    | 4.0/s     | Fast, applies Poison |
-| Salt Cannon     | 150g | 35     | 140   | 0.6/s     | Splash damage, applies Slow |
+| Pebble Turret   | 50g  | 12     | 120   | 1.0/s     | Balanced; can hit flying enemies |
+| Pepper Sprayer  | 75g  | 3      | 100   | 5.0/s     | Fast, applies Poison |
+| Salt Cannon     | 150g | 30     | 150   | 0.6/s     | Splash damage, applies Slow |
+| Kost des Todes  | 300g | 50     | 200   | 0.5/s     | Heavy splash; can hit flying enemies |
 
 ## Effects
 
@@ -59,11 +60,12 @@ Re-applying an effect refreshes its duration.
 
 ## Enemies
 
-| Enemy     | HP  | Speed | Reward | Notes            |
-|-----------|-----|-------|--------|------------------|
-| Snail     | 40  | Slow  | 5g     | Basic enemy      |
-| Slug      | 25  | Fast  | 4g     | Low HP, quick    |
-| Big Snail | 220 | Slow  | 30g    | Boss, every 5 waves |
+| Enemy        | HP  | Speed | Reward | Notes                                  |
+|--------------|-----|-------|--------|----------------------------------------|
+| Snail        | 50  | 55    | 5g     | Basic enemy                            |
+| Slug         | 30  | 105   | 4g     | Low HP, quick                          |
+| Flying Snail | 40  | 80    | 8g     | Flying - only Pebble Turret and Kost des Todes can hit it |
+| Big Snail    | 500 | 45    | 30g    | Boss                                   |
 
 You start with 150 gold and 20 lives.
 
@@ -77,6 +79,8 @@ exist, what they are called, and the order they unlock in is defined by
 (
     levels: [
         (id: "level1", name: "The Garden Path"),
+        (id: "level2", name: "Greenhouse Alley"),
+        (id: "level3", name: "The Compost Maze"),
     ],
 )
 ```
@@ -88,14 +92,25 @@ been beaten.
 
 Each level is a pair of files living in `assets/maps/`:
 
-- `<name>.tmx` — the Tiled map itself, using the tileset at
-  `assets/tilesets/tiles.tsx` (backed by `tiles.png`, a placeholder
-  spritesheet - swap it for real art any time, the `kind` tile properties
-  described below are all the game depends on). The map must be 15x10
-  tiles at 64px each (matching the fixed 960x640 play area) and contain
-  exactly two tile layers:
+- `<name>.tmx` — the Tiled map itself. It may reference several tilesets;
+  gameplay-relevant cells come from `assets/tilesets/tiles.tsx` (backed by
+  `tiles.png`, a placeholder spritesheet - swap it for real art any time,
+  the `kind` tile properties described below are all the game depends on),
+  while decorative cells may come from any other tileset the map declares
+  (e.g. `Serene_Village_32x32.png`).
+
+  The map's own `tilewidth`/`tileheight` (32px in the shipped levels) is
+  only Tiled's painting grid — in game every cell is drawn at the fixed
+  logical `TILE` size of 64px. The map must therefore be at least 15x10
+  cells to cover the fixed 960x640 play area; the shipped levels are 20x20,
+  and anything larger than the play area is scrolled by the camera rather
+  than shrunk to fit.
+
+  The map contains these tile layers:
   - `Ground` — purely visual; paint it with whatever tileset tiles look
     right (grass, path swatches, etc.). Not used for gameplay logic.
+  - `Env` — optional, purely visual, drawn on top of `Ground`. Use it for
+    props (bushes, trees, flowers) that should overlap the ground art.
   - `Logic` — gameplay data, normally hidden in Tiled (it's not meant to
     be seen by the player, but its tile data is still read regardless of
     layer visibility). Paint it with these tileset tiles:
@@ -108,6 +123,10 @@ Each level is a pair of files living in `assets/maps/`:
     adjacency, no forks, no disconnected pieces) - the game traces this
     chain into the ordered path snails follow, and panics with a
     descriptive error at startup if the painting is invalid.
+
+    Keep `build` cells next to the lane: tower ranges are 100-200 world
+    pixels against 64px cells, so a spot more than one cell away from the
+    path is out of reach for the cheaper towers.
 - `<name>.waves.ron` — the hand-authored list of waves for that level, in
   [RON](https://github.com/ron-rs/ron) format:
 
@@ -121,15 +140,15 @@ Each level is a pair of files living in `assets/maps/`:
               ],
           ),
           // one entry per wave, in order; `kind` is any EnemyType
-          // variant (Snail, Slug, BigSnail), `delay_after_previous` is
-          // the pause (seconds) before that spawn, relative to the
-          // previous one in the same wave.
+          // variant (Snail, Slug, FlyingSnail, BigSnail),
+          // `delay_after_previous` is the pause (seconds) before that
+          // spawn, relative to the previous one in the same wave.
       ],
   )
   ```
 
 To add a new level: open `assets/maps/level1.tmx` in Tiled as a starting
-point, save-as `<name>.tmx`, redraw `Ground`/`Logic`, write a matching
+point, save-as `<name>.tmx`, redraw `Ground`/`Env`/`Logic`, write a matching
 `<name>.waves.ron`, then append `(id: "<name>", name: "...")` to
 `assets/maps/levels.ron`. It will show up on the map selection screen,
 locked until the level listed before it has been beaten.
