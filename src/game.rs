@@ -307,7 +307,7 @@ impl Game {
                 EnemyType::BigSnail => &self.sprites.big_snail,
                 EnemyType::FlyingSnail => &self.sprites.flying_snail,
             };
-            enemy.draw(tex);
+            enemy.draw(tex, &self.sprites);
         }
 
         for projectile in &self.projectiles {

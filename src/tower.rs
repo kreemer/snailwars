@@ -12,9 +12,41 @@ pub enum TowerType {
     CostDesTodes,
 }
 
+/// Speed multiplier applied to an enemy carrying [`EffectType::Slow`].
+pub const SLOW_FACTOR: f32 = 0.75;
+/// Damage per second dealt by [`EffectType::Poison`].
+pub const POISON_DPS: f32 = 8.0;
+
+/// A temporary debuff an enemy can carry. Effects are applied by
+/// projectiles and expire on their own after [`EffectType::duration`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize, Hash)]
 pub enum EffectType {
     Slow,
+    Poison,
+}
+
+impl EffectType {
+    /// Every effect, in a fixed order. Enemies store their effects in a
+    /// `HashMap`, whose iteration order is not stable, so rendering and
+    /// any other ordered processing iterates this instead.
+    pub const ALL: [EffectType; 2] = [EffectType::Slow, EffectType::Poison];
+
+    /// How long the effect lasts, in seconds, when freshly applied.
+    pub fn duration(self) -> f32 {
+        match self {
+            EffectType::Slow => 10.0,
+            EffectType::Poison => 4.0,
+        }
+    }
+
+    /// Base name of the effect's icon, used both for the asset path and
+    /// for lookups in [`crate::sprites::Sprites`].
+    pub fn icon_name(self) -> &'static str {
+        match self {
+            EffectType::Slow => "slow",
+            EffectType::Poison => "poison",
+        }
+    }
 }
 
 impl TowerType {
@@ -39,7 +71,7 @@ impl TowerType {
     pub fn damage(self) -> f32 {
         match self {
             TowerType::Pebble => 12.0,
-            TowerType::Pepper => 7.0,
+            TowerType::Pepper => 3.0,
             TowerType::Salt => 30.0,
             TowerType::CostDesTodes => 50.0,
         }
@@ -76,6 +108,7 @@ impl TowerType {
     pub fn projectiles_effect(self) -> Vec<EffectType> {
         match self {
             TowerType::Salt => vec![EffectType::Slow],
+            TowerType::Pepper => vec![EffectType::Poison],
             _ => vec![],
         }
     }

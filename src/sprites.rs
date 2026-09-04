@@ -7,11 +7,14 @@
 //! transparent background. `flying_snail` uses the same convention but
 //! falls back to a generated placeholder while its art is missing.
 //! Everything else (towers, projectile, build
-//! spot overlay) has no art yet, so it is still built at startup by
-//! rasterizing simple shapes (circles / rounded rectangles) into an
-//! `Image` and uploading it as a `Texture2D`.
+//! spot overlay, debuff icons) has no art yet, so it is still built at
+//! startup by rasterizing simple shapes (circles / rounded rectangles)
+//! into an `Image` and uploading it as a `Texture2D`. Debuff icons are
+//! looked for in `assets/effects/{name}.png` first.
 
 use macroquad::prelude::*;
+
+use crate::tower::EffectType;
 
 pub enum Direction {
     TOP,
@@ -35,6 +38,9 @@ pub struct Sprites {
     /// Overlay marker drawn over unoccupied build spots; the ground art
     /// itself comes from the level's Tiled tileset (see `crate::map`).
     pub build_spot: Texture2D,
+    /// Icons drawn below an enemy for each debuff it currently carries.
+    pub effect_slow: Texture2D,
+    pub effect_poison: Texture2D,
 }
 
 impl Sprites {
@@ -50,7 +56,18 @@ impl Sprites {
             flying_snail: try_load_enemy_texture("flying_snail")
                 .await
                 .unwrap_or_else(|| placeholders.flying_snail.clone()),
+            effect_slow: load_effect_texture(EffectType::Slow, &placeholders.effect_slow).await,
+            effect_poison: load_effect_texture(EffectType::Poison, &placeholders.effect_poison)
+                .await,
             ..placeholders
+        }
+    }
+
+    /// Icon representing `effect`, drawn below enemies carrying it.
+    pub fn effect_texture(&self, effect: EffectType) -> &Texture2D {
+        match effect {
+            EffectType::Slow => &self.effect_slow,
+            EffectType::Poison => &self.effect_poison,
         }
     }
 
@@ -106,6 +123,16 @@ impl Sprites {
                 Color::new(0.3, 0.35, 0.3, 0.55),
                 Color::new(0.9, 0.9, 0.9, 0.8),
             ),
+            effect_slow: circle_texture(
+                16,
+                Color::new(0.35, 0.7, 1.0, 1.0),
+                Color::new(0.1, 0.3, 0.6, 1.0),
+            ),
+            effect_poison: circle_texture(
+                16,
+                Color::new(0.4, 0.9, 0.2, 1.0),
+                Color::new(0.1, 0.4, 0.05, 1.0),
+            ),
         }
     }
 }
@@ -114,19 +141,33 @@ impl Sprites {
 /// a clear message if it's missing (same failure style as the tileset
 /// load in `main.rs`).
 async fn load_enemy_texture(name: &str) -> Texture2D {
-    let path = format!("assets/enemy/{name}.png");
-    let texture = load_texture(&path)
+    let path = enemy_texture_path(name);
+    try_load_texture(&path)
         .await
-        .unwrap_or_else(|e| panic!("failed to load enemy texture '{path}': {e}"));
-    texture.set_filter(FilterMode::Linear);
-    texture
+        .unwrap_or_else(|| panic!("failed to load enemy texture '{path}'"))
 }
 
 /// Like [`load_enemy_texture`], but returns `None` instead of panicking when
 /// the art does not exist yet, so the caller can fall back to a placeholder.
 async fn try_load_enemy_texture(name: &str) -> Option<Texture2D> {
-    let path = format!("assets/enemy/{name}.png");
-    let texture = load_texture(&path).await.ok()?;
+    try_load_texture(&enemy_texture_path(name)).await
+}
+
+/// Loads the icon for `effect` from `assets/effects/{name}.png`, falling
+/// back to the generated placeholder while the art is missing.
+async fn load_effect_texture(effect: EffectType, placeholder: &Texture2D) -> Texture2D {
+    let path = format!("assets/effects/{}.png", effect.icon_name());
+    try_load_texture(&path)
+        .await
+        .unwrap_or_else(|| placeholder.clone())
+}
+
+fn enemy_texture_path(name: &str) -> String {
+    format!("assets/enemy/{name}.png")
+}
+
+async fn try_load_texture(path: &str) -> Option<Texture2D> {
+    let texture = load_texture(path).await.ok()?;
     texture.set_filter(FilterMode::Linear);
     Some(texture)
 }

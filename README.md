@@ -26,8 +26,21 @@ cargo run
 | Tower           | Cost | Damage | Range | Fire rate | Notes           |
 |-----------------|------|--------|-------|-----------|-----------------|
 | Pebble Turret   | 50g  | 12     | 120   | 1.0/s     | Balanced        |
-| Pepper Sprayer  | 75g  | 5      | 90    | 4.0/s     | Fast, low damage|
-| Salt Cannon     | 150g | 35     | 140   | 0.6/s     | Splash damage   |
+| Pepper Sprayer  | 75g  | 3      | 90    | 4.0/s     | Fast, applies Poison |
+| Salt Cannon     | 150g | 35     | 140   | 0.6/s     | Splash damage, applies Slow |
+
+## Effects
+
+Towers can apply temporary debuffs. Every active debuff is shown as an icon
+below the enemy; the art is loaded from `assets/effects/{name}.png` and falls
+back to a generated placeholder while it is missing.
+
+| Effect | Applied by     | Duration | Notes                       |
+|--------|----------------|----------|-----------------------------|
+| Slow   | Salt Cannon    | 10s      | 25% movement speed reduction |
+| Poison | Pepper Sprayer | 4s       | 8 damage per second          |
+
+Re-applying an effect refreshes its duration.
 
 ## Enemies
 
