@@ -5,7 +5,10 @@
 //! - original artwork inspired by hand-drawn crayon sketches (see
 //! `assets/enemy/raw/` for the reference photos), rendered with a
 //! transparent background. `flying_snail` uses the same convention but
-//! falls back to a generated placeholder while its art is missing.
+//! falls back to a generated placeholder while its art is missing. The
+//! title screen background is looked for in
+//! `assets/ui/title_background.png` and is simply absent (the title
+//! screen paints a plain backdrop) while that art is missing.
 //! Everything else (towers, projectile, build
 //! spot overlay, debuff icons) has no art yet, so it is still built at
 //! startup by rasterizing simple shapes (circles / rounded rectangles)
@@ -15,6 +18,10 @@
 use macroquad::prelude::*;
 
 use crate::tower::EffectType;
+
+/// Optional art shown behind the title screen; see
+/// [`Sprites::title_background`].
+const TITLE_BACKGROUND_PATH: &str = "assets/ui/title_background.png";
 
 pub enum Direction {
     TOP,
@@ -41,6 +48,11 @@ pub struct Sprites {
     /// Icons drawn below an enemy for each debuff it currently carries.
     pub effect_slow: Texture2D,
     pub effect_poison: Texture2D,
+    /// Full-screen art behind the title screen, loaded from
+    /// `assets/ui/title_background.png`. `None` while the art is
+    /// missing, in which case the title screen paints a plain
+    /// background instead.
+    pub title_background: Option<Texture2D>,
 }
 
 impl Sprites {
@@ -59,6 +71,7 @@ impl Sprites {
             effect_slow: load_effect_texture(EffectType::Slow, &placeholders.effect_slow).await,
             effect_poison: load_effect_texture(EffectType::Poison, &placeholders.effect_poison)
                 .await,
+            title_background: try_load_texture(TITLE_BACKGROUND_PATH).await,
             ..placeholders
         }
     }
@@ -133,6 +146,7 @@ impl Sprites {
                 Color::new(0.4, 0.9, 0.2, 1.0),
                 Color::new(0.1, 0.4, 0.05, 1.0),
             ),
+            title_background: None,
         }
     }
 }

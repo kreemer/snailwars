@@ -1,0 +1,8 @@
+// Every playable level, in the order they are unlocked. `id` is the
+// base name of the level's `<id>.tmx` / `<id>.waves.ron` pair in this
+// directory; `name` is what the map selection screen shows.
+(
+    levels: [
+        (id: "level1", name: "The Garden Path"),
+    ],
+)

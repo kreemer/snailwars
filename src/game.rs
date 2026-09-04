@@ -36,7 +36,7 @@ pub struct Game {
     /// order; see [`crate::map::Map::draw`].
     tileset_textures: Vec<Texture2D>,
     waves: Vec<Wave>,
-    level_name: &'static str,
+    level_id: String,
 
     enemies: Vec<Enemy>,
     towers: Vec<Tower>,
@@ -62,7 +62,7 @@ impl Game {
     /// enemy/UI sprites (texture loading is async in macroquad and must
     /// happen before this constructor runs; see `main.rs`).
     pub fn load(
-        level_name: &'static str,
+        level_id: &str,
         level: Level,
         tileset_textures: Vec<Texture2D>,
         sprites: Sprites,
@@ -74,7 +74,7 @@ impl Game {
             sprites,
             tileset_textures,
             waves: level.waves,
-            level_name,
+            level_id: level_id.to_owned(),
             enemies: Vec::new(),
             towers: Vec::new(),
             projectiles: Vec::new(),
@@ -98,6 +98,30 @@ impl Game {
         self.map.world_size()
     }
 
+    /// Id of the level being played, matching its
+    /// [`crate::catalog::LevelEntry::id`].
+    pub fn level_id(&self) -> &str {
+        &self.level_id
+    }
+
+    /// Whether the level is still running, was lost, or was beaten. The
+    /// app layer (see [`crate::app::App`]) drives what happens next.
+    pub fn status(&self) -> &GameStatus {
+        &self.status
+    }
+
+    /// Throw away all progress within the level and start it over from
+    /// the beginning, reusing the already-loaded textures.
+    pub fn restart(&mut self) {
+        let level = Level::load(&self.level_id);
+        *self = Game::load(
+            &self.level_id,
+            level,
+            self.tileset_textures.clone(),
+            self.sprites.clone(),
+        );
+    }
+
     /// `ui_mouse` and `world_mouse` are the mouse position converted to
     /// logical UI coordinates (fixed, ignores zoom) and logical world
     /// coordinates (follows zoom) respectively - see
@@ -106,7 +130,6 @@ impl Game {
     /// never needs to know about the real window size/zoom itself.
     pub fn update(&mut self, real_dt: f32, ui_mouse: Vec2, world_mouse: Vec2) {
         if self.status != GameStatus::Playing {
-            self.handle_restart_input();
             return;
         }
 
@@ -253,18 +276,6 @@ impl Game {
         }
     }
 
-    fn handle_restart_input(&mut self) {
-        if is_key_pressed(KeyCode::R) {
-            let level = Level::load(self.level_name);
-            *self = Game::load(
-                self.level_name,
-                level,
-                self.tileset_textures.clone(),
-                self.sprites.clone(),
-            );
-        }
-    }
-
     fn start_next_wave(&mut self) {
         self.wave_number += 1;
         let wave = &self.waves[self.wave_number as usize - 1];
@@ -333,10 +344,11 @@ impl Game {
         }
     }
 
-    /// Draw the fixed (non-zoomable) UI layer: HUD, panel, and any
-    /// full-screen overlay message. Must be drawn with a transparent
-    /// background so the world layer shows through beneath it; see
-    /// [`crate::viewport::Viewport::begin_ui`].
+    /// Draw the fixed (non-zoomable) UI layer: HUD and tower panel. Must
+    /// be drawn with a transparent background so the world layer shows
+    /// through beneath it; see
+    /// [`crate::viewport::Viewport::begin_ui`]. End-of-level overlays
+    /// are drawn on top by the app layer (see [`crate::app::App`]).
     pub fn draw_ui(&self) {
         ui::draw_hud(
             self.gold,
@@ -351,15 +363,5 @@ impl Game {
             self.wave_active,
             SPEED_LEVELS[self.speed_index],
         );
-
-        match self.status {
-            GameStatus::GameOver => {
-                ui::draw_center_message("Game Over", "The snails got through! Press R to restart.")
-            }
-            GameStatus::Win => {
-                ui::draw_center_message("You Win!", "The garden is safe. Press R to play again.")
-            }
-            GameStatus::Playing => {}
-        }
     }
 }

@@ -11,6 +11,18 @@ along the way to stop them before they reach your base.
 cargo run
 ```
 
+## Screens
+
+The game opens on a **title screen** (background art is loaded from
+`assets/ui/title_background.png`; a plain backdrop is drawn while that
+file is missing). *Play* leads to the **map selection** screen, which
+lists every level from `assets/maps/levels.ron`. Only unlocked maps can
+be picked - a map unlocks once the map before it has been beaten, and
+the first one is always available.
+
+Progress is stored in `save.ron` next to where the game is run from.
+Delete that file to reset all unlocks.
+
 ## Controls
 
 - **Click a tower button** (bottom-left panel) to select a tower type, then
@@ -19,7 +31,10 @@ cargo run
 - **Start Wave** button (bottom-right) begins the next wave of enemies.
 - **Speed button** (1x/2x/3x, next to Start Wave) or **Tab** cycles the
   simulation speed, so you can fast-forward through waves.
-- Press **R** to restart after a game over or win.
+- **Esc** leaves a level and returns to the title screen.
+- After winning, choose **Next Level** (if there is one) or **Back to
+  Title**; after losing, choose **Restart** or **Back to Title**.
+  **R** also restarts the current level.
 
 ## Towers
 
@@ -54,10 +69,22 @@ You start with 150 gold and 20 lives.
 
 ## Maps
 
-Maps are hand-drawn in [Tiled](https://www.mapeditor.org/) and loaded at
-startup (currently `assets/maps/level1.tmx`, wired up in `src/main.rs`; the
-loader (`src/level.rs`) supports any `<name>.tmx`/`<name>.waves.ron` pair,
-so more levels can be added and switched between later).
+Maps are hand-drawn in [Tiled](https://www.mapeditor.org/). Which maps
+exist, what they are called, and the order they unlock in is defined by
+`assets/maps/levels.ron`:
+
+```ron
+(
+    levels: [
+        (id: "level1", name: "The Garden Path"),
+    ],
+)
+```
+
+`id` is the base name of the level's file pair in `assets/maps/`; `name`
+is the label shown on the map selection screen. The list order is the
+progression order: each level unlocks once the one listed before it has
+been beaten.
 
 Each level is a pair of files living in `assets/maps/`:
 
@@ -103,7 +130,9 @@ Each level is a pair of files living in `assets/maps/`:
 
 To add a new level: open `assets/maps/level1.tmx` in Tiled as a starting
 point, save-as `<name>.tmx`, redraw `Ground`/`Logic`, write a matching
-`<name>.waves.ron`, then point `src/main.rs`'s `level_name` at `<name>`.
+`<name>.waves.ron`, then append `(id: "<name>", name: "...")` to
+`assets/maps/levels.ron`. It will show up on the map selection screen,
+locked until the level listed before it has been beaten.
 
 ### Custom tile properties
 
@@ -116,7 +145,12 @@ you use for path/start/end/build cells.
 
 ## Project layout
 
-- `src/main.rs` — window setup, level loading, and main game loop
+- `src/main.rs` — window setup and app startup
+- `src/app.rs` — screen state machine (title, map selection, playing),
+  level loading/switching, and end-of-level flow
+- `src/catalog.rs` — the level list loaded from `assets/maps/levels.ron`
+- `src/progress.rs` — which levels are beaten/unlocked, persisted to
+  `save.ron`
 - `src/game.rs` — core game state, update/draw orchestration
 - `src/level.rs` — loads a level's `.tmx` map and `.waves.ron` wave file
   (path tracing, tile parsing)
@@ -129,7 +163,8 @@ you use for path/start/end/build cells.
   level's `.waves.ron` file)
 - `src/sprites.rs` — procedurally generated placeholder textures for
   towers/enemies/projectiles/UI
-- `src/ui.rs` — HUD, tower panel, and overlay screens
+- `src/ui.rs` — HUD, tower panel, title/map-selection screens, and the
+  end-of-level overlay
 
 Enemy/tower/projectile sprites are simple procedurally generated shapes (no
 external art assets); swap in real textures later by replacing
