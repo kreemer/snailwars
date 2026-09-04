@@ -132,6 +132,7 @@ impl Game {
                     tower.kind.damage(),
                     tower.kind.splash_radius(),
                     tower.kind.projectiles_effect(),
+                    tower.kind,
                 ));
                 tower.fire();
             }
@@ -304,6 +305,7 @@ impl Game {
                 EnemyType::Snail => &self.sprites.snail,
                 EnemyType::Slug => &self.sprites.slug,
                 EnemyType::BigSnail => &self.sprites.big_snail,
+                EnemyType::FlyingSnail => &self.sprites.flying_snail,
             };
             enemy.draw(tex);
         }

@@ -1,6 +1,6 @@
 //! Towers: player-placed structures that shoot at passing enemies.
 
-use crate::enemy::Enemy;
+use crate::enemy::{Enemy, EnemyAttribute};
 use macroquad::prelude::*;
 use serde::Deserialize;
 
@@ -79,6 +79,15 @@ impl TowerType {
             _ => vec![],
         }
     }
+
+    /// Whether this tower is able to engage enemies carrying `attribute`.
+    pub fn can_target(self, attribute: EnemyAttribute) -> bool {
+        match attribute {
+            EnemyAttribute::Flying => {
+                matches!(self, TowerType::Pebble | TowerType::CostDesTodes)
+            }
+        }
+    }
 }
 
 pub struct Tower {
@@ -117,6 +126,9 @@ impl Tower {
         let mut best: Option<(u32, usize)> = None; // (id, waypoint_index)
         for enemy in enemies.iter() {
             if enemy.is_dead() || enemy.reached_base {
+                continue;
+            }
+            if !enemy.is_targetable_by(self.kind) {
                 continue;
             }
             let dist = (enemy.pos - self.pos).length();

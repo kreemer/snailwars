@@ -4,7 +4,9 @@
 //! `assets/enemy/`, generated ahead of time by `assets/enemy/generate.py`
 //! - original artwork inspired by hand-drawn crayon sketches (see
 //! `assets/enemy/raw/` for the reference photos), rendered with a
-//! transparent background. Everything else (towers, projectile, build
+//! transparent background. `flying_snail` uses the same convention but
+//! falls back to a generated placeholder while its art is missing.
+//! Everything else (towers, projectile, build
 //! spot overlay) has no art yet, so it is still built at startup by
 //! rasterizing simple shapes (circles / rounded rectangles) into an
 //! `Image` and uploading it as a `Texture2D`.
@@ -15,7 +17,7 @@ pub enum Direction {
     TOP,
     RIGHT,
     BOTTOM,
-    LEFT
+    LEFT,
 }
 
 /// All textures used by the game, loaded/generated once at startup.
@@ -24,6 +26,7 @@ pub struct Sprites {
     pub snail: Texture2D,
     pub slug: Texture2D,
     pub big_snail: Texture2D,
+    pub flying_snail: Texture2D,
     pub tower_pebble: Texture2D,
     pub tower_pepper: Texture2D,
     pub tower_salt: Texture2D,
@@ -39,11 +42,15 @@ impl Sprites {
     /// textures. Texture loading is async in macroquad, so this must be
     /// awaited before starting the game (see `main.rs`).
     pub async fn load() -> Self {
+        let placeholders = Self::generate_placeholders();
         Sprites {
             snail: load_enemy_texture("snail").await,
             slug: load_enemy_texture("slug").await,
             big_snail: load_enemy_texture("big_snail").await,
-            ..Self::generate_placeholders()
+            flying_snail: try_load_enemy_texture("flying_snail")
+                .await
+                .unwrap_or_else(|| placeholders.flying_snail.clone()),
+            ..placeholders
         }
     }
 
@@ -63,6 +70,11 @@ impl Sprites {
                 40,
                 Color::new(0.8, 0.1, 0.1, 1.0),
                 Color::new(0.45, 0.05, 0.05, 1.0),
+            ),
+            flying_snail: circle_texture(
+                24,
+                Color::new(0.7, 0.85, 1.0, 1.0),
+                Color::new(0.25, 0.4, 0.7, 1.0),
             ),
             tower_pebble: rounded_rect_texture(
                 32,
@@ -108,6 +120,15 @@ async fn load_enemy_texture(name: &str) -> Texture2D {
         .unwrap_or_else(|e| panic!("failed to load enemy texture '{path}': {e}"));
     texture.set_filter(FilterMode::Linear);
     texture
+}
+
+/// Like [`load_enemy_texture`], but returns `None` instead of panicking when
+/// the art does not exist yet, so the caller can fall back to a placeholder.
+async fn try_load_enemy_texture(name: &str) -> Option<Texture2D> {
+    let path = format!("assets/enemy/{name}.png");
+    let texture = load_texture(&path).await.ok()?;
+    texture.set_filter(FilterMode::Linear);
+    Some(texture)
 }
 
 fn circle_texture(size: u16, fill: Color, outline: Color) -> Texture2D {

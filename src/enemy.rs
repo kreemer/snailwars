@@ -7,13 +7,21 @@ use macroquad::prelude::*;
 use serde::Deserialize;
 
 use crate::sprites::Direction;
-use crate::tower::EffectType;
+use crate::tower::{EffectType, TowerType};
+
+/// A property of an enemy that restricts which towers are able to engage
+/// it. An enemy without any attributes can be hit by every tower.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum EnemyAttribute {
+    Flying,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize)]
 pub enum EnemyType {
     Snail,
     Slug,
     BigSnail,
+    FlyingSnail,
 }
 
 impl EnemyType {
@@ -22,6 +30,7 @@ impl EnemyType {
             EnemyType::Snail => 50.0,
             EnemyType::Slug => 30.0,
             EnemyType::BigSnail => 500.0,
+            EnemyType::FlyingSnail => 40.0,
         }
     }
 
@@ -30,6 +39,7 @@ impl EnemyType {
             EnemyType::Snail => 55.0,
             EnemyType::Slug => 105.0,
             EnemyType::BigSnail => 45.0,
+            EnemyType::FlyingSnail => 80.0,
         }
     }
 
@@ -38,6 +48,7 @@ impl EnemyType {
             EnemyType::Snail => 5,
             EnemyType::Slug => 4,
             EnemyType::BigSnail => 30,
+            EnemyType::FlyingSnail => 8,
         }
     }
 
@@ -46,6 +57,14 @@ impl EnemyType {
             EnemyType::Snail => 14.0,
             EnemyType::Slug => 12.0,
             EnemyType::BigSnail => 20.0,
+            EnemyType::FlyingSnail => 12.0,
+        }
+    }
+
+    pub fn attributes(self) -> &'static [EnemyAttribute] {
+        match self {
+            EnemyType::FlyingSnail => &[EnemyAttribute::Flying],
+            _ => &[],
         }
     }
 }
@@ -80,6 +99,15 @@ impl Enemy {
 
     pub fn is_dead(&self) -> bool {
         self.hp <= 0.0
+    }
+
+    /// Whether a tower of `tower_kind` is able to hit this enemy at all.
+    /// The tower must be able to cope with every attribute the enemy has.
+    pub fn is_targetable_by(&self, tower_kind: TowerType) -> bool {
+        self.kind
+            .attributes()
+            .iter()
+            .all(|&attribute| tower_kind.can_target(attribute))
     }
 
     /// Move the enemy along the path toward the next waypoint. Returns
@@ -146,7 +174,7 @@ impl Enemy {
         let rotation = match self.direction {
             Direction::TOP => -1.57,
             Direction::BOTTOM => 1.57,
-            Direction::LEFT => 2.0*1.57,
+            Direction::LEFT => 2.0 * 1.57,
             _ => 0.0,
         };
 
