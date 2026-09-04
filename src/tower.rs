@@ -121,6 +121,12 @@ impl TowerType {
             }
         }
     }
+
+    /// Whether this tower's damage goes straight through enemy armor (see
+    /// [`crate::enemy::EnemyType::armor`]).
+    pub fn pierces_armor(self) -> bool {
+        matches!(self, TowerType::CostDesTodes)
+    }
 }
 
 pub struct Tower {

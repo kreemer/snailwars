@@ -317,6 +317,9 @@ impl Game {
                 EnemyType::Slug => &self.sprites.slug,
                 EnemyType::BigSnail => &self.sprites.big_snail,
                 EnemyType::FlyingSnail => &self.sprites.flying_snail,
+                EnemyType::ArmoredSnail => &self.sprites.armored_snail,
+                EnemyType::ArmoredSlug => &self.sprites.armored_slug,
+                EnemyType::ArmoredBigSnail => &self.sprites.armored_big_snail,
             };
             enemy.draw(tex, &self.sprites);
         }

@@ -60,12 +60,30 @@ Re-applying an effect refreshes its duration.
 
 ## Enemies
 
-| Enemy        | HP  | Speed | Reward | Notes                                  |
-|--------------|-----|-------|--------|----------------------------------------|
-| Snail        | 50  | 55    | 5g     | Basic enemy                            |
-| Slug         | 30  | 105   | 4g     | Low HP, quick                          |
-| Flying Snail | 40  | 80    | 8g     | Flying - only Pebble Turret and Kost des Todes can hit it |
-| Big Snail    | 500 | 45    | 30g    | Boss                                   |
+| Enemy             | HP  | Speed | Armor | Reward | Notes                              |
+|-------------------|-----|-------|-------|--------|------------------------------------|
+| Snail             | 50  | 55    | -     | 5g     | Basic enemy                        |
+| Slug              | 30  | 105   | -     | 4g     | Low HP, quick                      |
+| Flying Snail      | 40  | 80    | -     | 8g     | Flying - only Pebble Turret and Kost des Todes can hit it |
+| Big Snail         | 500 | 45    | -     | 30g    | Boss                               |
+| Armored Slug      | 45  | 95    | 3     | 8g     | Fast, lightly plated               |
+| Armored Snail     | 70  | 50    | 6     | 10g    | Shrugs off small hits              |
+| Armored Big Snail | 600 | 40    | 12    | 60g    | Armored boss                       |
+
+### Armor
+
+Armored enemies absorb a flat amount of damage from every **direct hit**
+(a projectile impact, splash included), down to a minimum of 1 damage per
+hit - armor slows an enemy's death down but never makes it immortal.
+
+Two things go straight through armor:
+
+- **Poison** damage over time, which always ticks at its full 8 dps.
+- **Kost des Todes**, whose projectiles ignore armor entirely.
+
+So a Pepper Sprayer's 3 damage shots drop to 1 against an Armored Snail,
+but the Poison they apply still hurts at full strength; a Pebble Turret
+does 6 of its 12 damage, and a Salt Cannon 24 of its 30.
 
 You start with 150 gold and 20 lives.
 
@@ -140,7 +158,8 @@ Each level is a pair of files living in `assets/maps/`:
               ],
           ),
           // one entry per wave, in order; `kind` is any EnemyType
-          // variant (Snail, Slug, FlyingSnail, BigSnail),
+          // variant (Snail, Slug, FlyingSnail, BigSnail,
+          // ArmoredSnail, ArmoredSlug, ArmoredBigSnail),
           // `delay_after_previous` is the pause (seconds) before that
           // spawn, relative to the previous one in the same wave.
       ],

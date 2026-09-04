@@ -16,6 +16,10 @@ const EFFECT_ICON_SPACING: f32 = 2.0;
 /// Gap between the enemy sprite and the debuff icon row.
 const EFFECT_ICON_MARGIN: f32 = 2.0;
 
+/// Damage a direct hit always deals, no matter how much armor absorbs, so
+/// armor can slow an enemy's death down but never make it immortal.
+pub const MIN_DIRECT_DAMAGE: f32 = 1.0;
+
 /// A property of an enemy that restricts which towers are able to engage
 /// it. An enemy without any attributes can be hit by every tower.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -29,6 +33,9 @@ pub enum EnemyType {
     Slug,
     BigSnail,
     FlyingSnail,
+    ArmoredSnail,
+    ArmoredSlug,
+    ArmoredBigSnail,
 }
 
 impl EnemyType {
@@ -38,6 +45,9 @@ impl EnemyType {
             EnemyType::Slug => 30.0,
             EnemyType::BigSnail => 500.0,
             EnemyType::FlyingSnail => 40.0,
+            EnemyType::ArmoredSnail => 70.0,
+            EnemyType::ArmoredSlug => 45.0,
+            EnemyType::ArmoredBigSnail => 600.0,
         }
     }
 
@@ -47,6 +57,9 @@ impl EnemyType {
             EnemyType::Slug => 105.0,
             EnemyType::BigSnail => 45.0,
             EnemyType::FlyingSnail => 80.0,
+            EnemyType::ArmoredSnail => 50.0,
+            EnemyType::ArmoredSlug => 95.0,
+            EnemyType::ArmoredBigSnail => 40.0,
         }
     }
 
@@ -56,6 +69,9 @@ impl EnemyType {
             EnemyType::Slug => 4,
             EnemyType::BigSnail => 30,
             EnemyType::FlyingSnail => 8,
+            EnemyType::ArmoredSnail => 10,
+            EnemyType::ArmoredSlug => 8,
+            EnemyType::ArmoredBigSnail => 60,
         }
     }
 
@@ -65,6 +81,23 @@ impl EnemyType {
             EnemyType::Slug => 12.0,
             EnemyType::BigSnail => 20.0,
             EnemyType::FlyingSnail => 12.0,
+            EnemyType::ArmoredSnail => 15.0,
+            EnemyType::ArmoredSlug => 13.0,
+            EnemyType::ArmoredBigSnail => 22.0,
+        }
+    }
+
+    /// Flat damage absorbed from every direct hit. Damage over time (see
+    /// [`EffectType::Poison`]) goes around armor entirely, so poison stays
+    /// the reliable answer to a heavily plated shell.
+    pub fn armor(self) -> f32 {
+        match self {
+            EnemyType::Snail | EnemyType::Slug | EnemyType::BigSnail | EnemyType::FlyingSnail => {
+                0.0
+            }
+            EnemyType::ArmoredSnail => 6.0,
+            EnemyType::ArmoredSlug => 3.0,
+            EnemyType::ArmoredBigSnail => 12.0,
         }
     }
 
@@ -163,6 +196,18 @@ impl Enemy {
         self.effects.contains_key(&effect)
     }
 
+    /// Apply a direct hit. Armor absorbs a flat part of the damage unless
+    /// the source pierces it, and a hit never deals less than
+    /// [`MIN_DIRECT_DAMAGE`].
+    pub fn take_damage(&mut self, amount: f32, ignores_armor: bool) {
+        let armor = if ignores_armor {
+            0.0
+        } else {
+            self.kind.armor()
+        };
+        self.hp -= (amount - armor).max(MIN_DIRECT_DAMAGE);
+    }
+
     /// Tick every active debuff: apply its per-frame consequences and
     /// count down its remaining duration, dropping expired ones.
     fn update_effects(&mut self, dt: f32) {
@@ -171,6 +216,7 @@ impl Enemy {
                 continue;
             }
             match effect {
+                // Damage over time deliberately bypasses armor.
                 EffectType::Poison => self.hp -= POISON_DPS * dt,
                 // Slow has no per-frame cost; it is read in `update`.
                 EffectType::Slow => {}
@@ -289,6 +335,10 @@ mod tests {
         Enemy::new(0, EnemyType::Snail, Vec2::new(0.0, 0.0))
     }
 
+    fn armored(kind: EnemyType) -> Enemy {
+        Enemy::new(0, kind, Vec2::new(0.0, 0.0))
+    }
+
     #[test]
     fn poison_damages_over_time_and_expires() {
         let mut enemy = snail();
@@ -340,5 +390,52 @@ mod tests {
         }
         assert!(!enemy.has_effect(EffectType::Poison));
         assert!(enemy.has_effect(EffectType::Slow));
+    }
+
+    #[test]
+    fn armor_absorbs_part_of_a_direct_hit() {
+        let mut enemy = armored(EnemyType::ArmoredSnail);
+        let hp_before = enemy.hp;
+        enemy.take_damage(30.0, false);
+
+        let expected = 30.0 - EnemyType::ArmoredSnail.armor();
+        assert!((hp_before - enemy.hp - expected).abs() < 0.001);
+    }
+
+    #[test]
+    fn armor_piercing_damage_is_not_reduced() {
+        let mut enemy = armored(EnemyType::ArmoredBigSnail);
+        let hp_before = enemy.hp;
+        enemy.take_damage(50.0, true);
+
+        assert!((hp_before - enemy.hp - 50.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn a_direct_hit_always_deals_the_minimum_damage() {
+        let mut enemy = armored(EnemyType::ArmoredBigSnail);
+        let hp_before = enemy.hp;
+        enemy.take_damage(3.0, false);
+
+        assert!((hp_before - enemy.hp - MIN_DIRECT_DAMAGE).abs() < 0.001);
+    }
+
+    #[test]
+    fn poison_ignores_armor() {
+        let mut enemy = armored(EnemyType::ArmoredBigSnail);
+        enemy.apply_effects(vec![EffectType::Poison]);
+
+        let hp_before = enemy.hp;
+        enemy.update(1.0, &PATH);
+        assert!((hp_before - enemy.hp - POISON_DPS).abs() < 0.001);
+    }
+
+    #[test]
+    fn unarmored_enemies_take_full_direct_damage() {
+        let mut enemy = snail();
+        let hp_before = enemy.hp;
+        enemy.take_damage(12.0, false);
+
+        assert!((hp_before - enemy.hp - 12.0).abs() < 0.001);
     }
 }

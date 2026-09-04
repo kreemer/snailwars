@@ -65,10 +65,12 @@ impl Projectile {
     }
 
     /// Apply damage to the target, and to any nearby enemies if this
-    /// projectile has a splash radius.
+    /// projectile has a splash radius. Armor is applied per enemy unless
+    /// the firing tower pierces it.
     pub fn apply_damage(&self, enemies: &mut [Enemy]) {
         let damage = self.damage;
-        self.for_each_affected(enemies, |enemy| enemy.hp -= damage);
+        let ignores_armor = self.tower_kind.pierces_armor();
+        self.for_each_affected(enemies, |enemy| enemy.take_damage(damage, ignores_armor));
     }
 
     /// Apply effect to the target, and to any nearby enemies if this

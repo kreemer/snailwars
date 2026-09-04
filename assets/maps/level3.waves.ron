@@ -131,6 +131,8 @@
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: BigSnail, delay_after_previous: 1.5),
+                (kind: ArmoredSlug, delay_after_previous: 0.5),
+                (kind: ArmoredSlug, delay_after_previous: 0.5),
             ],
         ),
         (
@@ -169,6 +171,8 @@
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: FlyingSnail, delay_after_previous: 0.5),
+                (kind: ArmoredSlug, delay_after_previous: 0.5),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
             ],
         ),
         (
@@ -211,6 +215,8 @@
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: FlyingSnail, delay_after_previous: 0.5),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
             ],
         ),
         (
@@ -255,6 +261,9 @@
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: FlyingSnail, delay_after_previous: 0.5),
+                (kind: ArmoredSlug, delay_after_previous: 0.5),
+                (kind: ArmoredSlug, delay_after_previous: 0.5),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
             ],
         ),
         (
@@ -305,6 +314,9 @@
                 (kind: Slug, delay_after_previous: 0.4),
                 (kind: Slug, delay_after_previous: 0.4),
                 (kind: BigSnail, delay_after_previous: 1.5),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
             ],
         ),
         (
@@ -353,6 +365,10 @@
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: FlyingSnail, delay_after_previous: 0.5),
+                (kind: ArmoredSlug, delay_after_previous: 0.5),
+                (kind: ArmoredSlug, delay_after_previous: 0.5),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
             ],
         ),
         (
@@ -406,6 +422,10 @@
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: FlyingSnail, delay_after_previous: 0.5),
                 (kind: BigSnail, delay_after_previous: 1.5),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
             ],
         ),
         (
@@ -470,6 +490,9 @@
                 (kind: Slug, delay_after_previous: 0.4),
                 (kind: BigSnail, delay_after_previous: 1.5),
                 (kind: BigSnail, delay_after_previous: 1.5),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
+                (kind: ArmoredSnail, delay_after_previous: 0.8),
+                (kind: ArmoredBigSnail, delay_after_previous: 2.0),
             ],
         ),
     ],

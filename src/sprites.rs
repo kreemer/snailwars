@@ -4,9 +4,10 @@
 //! `assets/enemy/`, generated ahead of time by `assets/enemy/generate.py`
 //! - original artwork inspired by hand-drawn crayon sketches (see
 //! `assets/enemy/raw/` for the reference photos), rendered with a
-//! transparent background. `flying_snail` uses the same convention but
-//! falls back to a generated placeholder while its art is missing. The
-//! title screen background is looked for in
+//! transparent background. `flying_snail` and the armored variants
+//! (`armored_snail`, `armored_slug`, `armored_big_snail`) use the same
+//! convention but fall back to a generated placeholder while their art is
+//! missing. The title screen background is looked for in
 //! `assets/ui/title_background.png` and is simply absent (the title
 //! screen paints a plain backdrop) while that art is missing.
 //! Everything else (towers, projectile, build
@@ -37,6 +38,9 @@ pub struct Sprites {
     pub slug: Texture2D,
     pub big_snail: Texture2D,
     pub flying_snail: Texture2D,
+    pub armored_snail: Texture2D,
+    pub armored_slug: Texture2D,
+    pub armored_big_snail: Texture2D,
     pub tower_pebble: Texture2D,
     pub tower_pepper: Texture2D,
     pub tower_salt: Texture2D,
@@ -68,6 +72,15 @@ impl Sprites {
             flying_snail: try_load_enemy_texture("flying_snail")
                 .await
                 .unwrap_or_else(|| placeholders.flying_snail.clone()),
+            armored_snail: try_load_enemy_texture("armored_snail")
+                .await
+                .unwrap_or_else(|| placeholders.armored_snail.clone()),
+            armored_slug: try_load_enemy_texture("armored_slug")
+                .await
+                .unwrap_or_else(|| placeholders.armored_slug.clone()),
+            armored_big_snail: try_load_enemy_texture("armored_big_snail")
+                .await
+                .unwrap_or_else(|| placeholders.armored_big_snail.clone()),
             effect_slow: load_effect_texture(EffectType::Slow, &placeholders.effect_slow).await,
             effect_poison: load_effect_texture(EffectType::Poison, &placeholders.effect_poison)
                 .await,
@@ -105,6 +118,21 @@ impl Sprites {
                 24,
                 Color::new(0.7, 0.85, 1.0, 1.0),
                 Color::new(0.25, 0.4, 0.7, 1.0),
+            ),
+            armored_snail: circle_texture(
+                30,
+                Color::new(0.62, 0.65, 0.7, 1.0),
+                Color::new(0.28, 0.3, 0.35, 1.0),
+            ),
+            armored_slug: circle_texture(
+                26,
+                Color::new(0.55, 0.5, 0.62, 1.0),
+                Color::new(0.24, 0.22, 0.32, 1.0),
+            ),
+            armored_big_snail: circle_texture(
+                44,
+                Color::new(0.45, 0.48, 0.55, 1.0),
+                Color::new(0.15, 0.17, 0.22, 1.0),
             ),
             tower_pebble: rounded_rect_texture(
                 32,
