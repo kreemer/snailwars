@@ -27,6 +27,7 @@ pub enum GameStatus {
 struct PendingSpawn {
     kind: EnemyType,
     delay: f32,
+    level: u16,
 }
 
 pub struct Game {
@@ -177,7 +178,7 @@ impl Game {
         let mut lives_lost = 0u32;
         self.enemies.retain(|enemy| {
             if enemy.is_dead() {
-                gold_earned += enemy.kind.reward();
+                gold_earned += enemy.reward;
                 false
             } else if enemy.reached_base {
                 lives_lost += 1;
@@ -211,7 +212,7 @@ impl Game {
             if let Some(entry) = self.spawn_queue.pop_front() {
                 let start = self.map.waypoints[0];
                 self.enemies
-                    .push(Enemy::new(self.next_enemy_id, entry.kind, start));
+                    .push(Enemy::new(self.next_enemy_id, entry.kind, start, entry.level));
                 self.next_enemy_id += 1;
             }
             if let Some(next) = self.spawn_queue.front() {
@@ -286,6 +287,7 @@ impl Game {
             .map(|s| PendingSpawn {
                 kind: s.kind,
                 delay: s.delay_after_previous,
+                level: s.level,
             })
             .collect();
         self.wave_active = true;

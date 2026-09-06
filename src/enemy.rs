@@ -7,7 +7,7 @@ use macroquad::prelude::*;
 use serde::Deserialize;
 
 use crate::sprites::{Direction, Sprites};
-use crate::tower::{EffectType, POISON_DPS, SLOW_FACTOR, TowerType};
+use crate::tower::{EffectType, TowerType, POISON_DPS, SLOW_FACTOR};
 
 /// Size of a single debuff icon in world units.
 const EFFECT_ICON_SIZE: f32 = 10.0;
@@ -15,6 +15,12 @@ const EFFECT_ICON_SIZE: f32 = 10.0;
 const EFFECT_ICON_SPACING: f32 = 2.0;
 /// Gap between the enemy sprite and the debuff icon row.
 const EFFECT_ICON_MARGIN: f32 = 2.0;
+
+/// Enemy level icon size
+const LEVEL_ICON_SIZE: f32 = 10.0;
+
+/// Enemy level icon size
+const LEVEL_ICON_MARGIN: f32 = 5.0;
 
 /// Damage a direct hit always deals, no matter how much armor absorbs, so
 /// armor can slow an enemy's death down but never make it immortal.
@@ -114,6 +120,8 @@ pub struct Enemy {
     pub kind: EnemyType,
     pub pos: Vec2,
     pub hp: f32,
+    pub armor: f32,
+    pub reward: u32,
     pub speed: f32,
     pub waypoint_index: usize,
     /// Set to true once the enemy reaches the end of the path.
@@ -121,20 +129,29 @@ pub struct Enemy {
     /// Active debuffs mapped to their remaining duration in seconds.
     pub effects: HashMap<EffectType, f32>,
     pub direction: Direction,
+    pub level: u16,
 }
 
 impl Enemy {
-    pub fn new(id: u32, kind: EnemyType, start: Vec2) -> Self {
+    pub fn new(id: u32, kind: EnemyType, start: Vec2, level: u16) -> Self {
+        let hp = kind.max_hp() * level as f32;
+        let armor = kind.armor() * ((level / 3) as f32).clamp(1.0, f32::MAX);
+        let speed = kind.speed() * ((level / 3) as f32).clamp(1.0, f32::MAX);
+        let reward = kind.reward() * level as u32;
+
         Enemy {
             id,
             kind,
             pos: start,
-            hp: kind.max_hp(),
-            speed: kind.speed(),
+            hp,
+            armor,
+            reward,
+            speed,
             waypoint_index: 1,
             reached_base: false,
             effects: HashMap::new(),
             direction: Direction::RIGHT,
+            level,
         }
     }
 
@@ -261,7 +278,7 @@ impl Enemy {
         let _ = half_tex;
 
         // Health bar.
-        let ratio = (self.hp / self.kind.max_hp()).clamp(0.0, 1.0);
+        let ratio = (self.hp / (self.kind.max_hp() * self.level as f32)).clamp(0.0, 1.0);
         let bar_w = r * 2.0;
         let bar_y = self.pos.y - r - 8.0;
         draw_rectangle(
@@ -280,6 +297,7 @@ impl Enemy {
         );
 
         self.draw_effect_icons(sprites);
+        self.draw_level_icon(sprites);
     }
 
     /// Draw one icon per active debuff in a row centered below the enemy.
@@ -314,6 +332,25 @@ impl Enemy {
         }
     }
 
+    /// Draw the level icon of the enemy above its head    
+    fn draw_level_icon(&self, _sprites: &Sprites) {
+        let x = self.pos.x;
+        let y = self.pos.y - self.kind.radius() - LEVEL_ICON_MARGIN;
+
+        // draw_texture_ex(
+        //     &sprites.enemy_level,
+        //     x,
+        //     y,
+        //     WHITE,
+        //     DrawTextureParams {
+        //       dest_size: Some(vec2(LEVEL_ICON_SIZE, LEVEL_ICON_SIZE)),
+        //     ..Default::default()
+        //     },
+        // );
+
+        draw_text(format!("{}", self.level), x, y + 6.0, 12.0, DARKGRAY);
+    }
+
     /// Apply the given debuffs, each for its own duration. Re-applying an
     /// effect never shortens the time left, so a weaker refresh cannot cut
     /// a longer running effect short.
@@ -322,6 +359,10 @@ impl Enemy {
             let remaining = self.effects.entry(effect).or_insert(0.0);
             *remaining = remaining.max(effect.duration());
         }
+    }
+
+    pub fn level(&self) -> u16 {
+        self.level
     }
 }
 
@@ -332,11 +373,11 @@ mod tests {
     const PATH: [Vec2; 2] = [Vec2::new(0.0, 0.0), Vec2::new(1000.0, 0.0)];
 
     fn snail() -> Enemy {
-        Enemy::new(0, EnemyType::Snail, Vec2::new(0.0, 0.0))
+        Enemy::new(0, EnemyType::Snail, Vec2::new(0.0, 0.0), 1)
     }
 
     fn armored(kind: EnemyType) -> Enemy {
-        Enemy::new(0, kind, Vec2::new(0.0, 0.0))
+        Enemy::new(0, kind, Vec2::new(0.0, 0.0), 1)
     }
 
     #[test]

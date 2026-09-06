@@ -52,6 +52,8 @@ pub struct Sprites {
     /// Icons drawn below an enemy for each debuff it currently carries.
     pub effect_slow: Texture2D,
     pub effect_poison: Texture2D,
+    /// Enemy level indicator.
+    pub enemy_level: Texture2D,
     /// Full-screen art behind the title screen, loaded from
     /// `assets/ui/title_background.png`. `None` while the art is
     /// missing, in which case the title screen paints a plain
@@ -173,6 +175,11 @@ impl Sprites {
                 16,
                 Color::new(0.4, 0.9, 0.2, 1.0),
                 Color::new(0.1, 0.4, 0.05, 1.0),
+            ),
+            enemy_level: circle_texture(
+                256,
+                Color::new(0.35, 0.7, 1.0, 1.0),
+                Color::new(0.1, 0.3, 0.6, 1.0),
             ),
             title_background: None,
         }

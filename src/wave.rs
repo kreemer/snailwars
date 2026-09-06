@@ -14,6 +14,7 @@ use serde::Deserialize;
 pub struct SpawnEntry {
     pub kind: EnemyType,
     pub delay_after_previous: f32,
+    pub level: u16,
 }
 
 #[derive(Deserialize)]
