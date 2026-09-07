@@ -11,6 +11,13 @@ along the way to stop them before they reach your base.
 cargo run
 ```
 
+If you use `devenv`, run tools through it so editor/LSP binaries resolve from
+the same environment:
+
+```sh
+devenv shell -- hx .
+```
+
 ## Screens
 
 The game opens on a **title screen** (background art is loaded from
@@ -207,4 +214,3 @@ you use for path/start/end/build cells.
 Enemy/tower/projectile sprites are simple procedurally generated shapes (no
 external art assets); swap in real textures later by replacing
 `sprites.rs`. Ground tiles come from `assets/tilesets/tiles.png` instead.
-

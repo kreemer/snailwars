@@ -57,7 +57,10 @@ impl fmt::Display for PathError {
         match self {
             PathError::NoStart => write!(f, "Logic layer has no cell with kind=start"),
             PathError::MultipleStart(cells) => {
-                write!(f, "Logic layer has more than one kind=start cell: {cells:?}")
+                write!(
+                    f,
+                    "Logic layer has more than one kind=start cell: {cells:?}"
+                )
             }
             PathError::NoEnd => write!(f, "Logic layer has no cell with kind=end"),
             PathError::MultipleEnd(cells) => {
@@ -285,10 +288,9 @@ impl Level {
             .tilesets()
             .iter()
             .map(|tileset| {
-                let image = tileset
-                    .image
-                    .as_ref()
-                    .unwrap_or_else(|| panic!("tileset '{}' in '{tmx_path}' has no image", tileset.name));
+                let image = tileset.image.as_ref().unwrap_or_else(|| {
+                    panic!("tileset '{}' in '{tmx_path}' has no image", tileset.name)
+                });
                 assert_eq!(
                     tileset.tile_width, tileset.tile_height,
                     "tileset '{}' in '{tmx_path}' must use square tiles",
@@ -464,6 +466,9 @@ mod tests {
             ((5, 5), TileKind::Start),
             ((1, 0), TileKind::End),
         ]);
-        assert!(matches!(trace_path(&cells), Err(PathError::MultipleStart(_))));
+        assert!(matches!(
+            trace_path(&cells),
+            Err(PathError::MultipleStart(_))
+        ));
     }
 }

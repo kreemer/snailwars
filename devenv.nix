@@ -5,9 +5,15 @@
   inputs,
   ...
 }:
-
 {
-  packages = [ pkgs.cargo ];
-
-  languages.rust.enable = true;
+  languages.rust = {
+    enable = true;
+    components = [
+      "rustc"
+      "cargo"
+      "clippy"
+      "rustfmt"
+      "rust-analyzer"
+    ];
+  };
 }

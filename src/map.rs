@@ -144,10 +144,30 @@ impl Map {
                 continue;
             }
             let d = (pos - *spot).length();
-            if d <= max_dist
-                && best.is_none_or(|(_, bd)| d < bd) {
-                    best = Some((i, d));
-                }
+            if d <= max_dist && best.is_none_or(|(_, bd)| d < bd) {
+                best = Some((i, d));
+            }
+        }
+        best.map(|(i, _)| i)
+    }
+
+    /// Index of the nearest occupied build spot to `pos`, within
+    /// `max_dist`, if any.
+    pub fn nearest_occupied_spot(
+        &self,
+        pos: Vec2,
+        occupied: &[bool],
+        max_dist: f32,
+    ) -> Option<usize> {
+        let mut best: Option<(usize, f32)> = None;
+        for (i, spot) in self.build_spots.iter().enumerate() {
+            if !occupied[i] {
+                continue;
+            }
+            let d = (pos - *spot).length();
+            if d <= max_dist && best.is_none_or(|(_, bd)| d < bd) {
+                best = Some((i, d));
+            }
         }
         best.map(|(i, _)| i)
     }

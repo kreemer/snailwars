@@ -10,7 +10,7 @@ use crate::tower::{Tower, TowerType};
 use crate::ui;
 use crate::wave::Wave;
 use macroquad::prelude::*;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 const STARTING_GOLD: u32 = 150;
 const STARTING_LIVES: u32 = 20;
@@ -40,7 +40,7 @@ pub struct Game {
     level_id: String,
 
     enemies: Vec<Enemy>,
-    towers: Vec<Tower>,
+    towers: HashMap<usize, Tower>,
     projectiles: Vec<Projectile>,
     occupied: Vec<bool>,
 
@@ -77,7 +77,7 @@ impl Game {
             waves: level.waves,
             level_id: level_id.to_owned(),
             enemies: Vec::new(),
-            towers: Vec::new(),
+            towers: HashMap::new(),
             projectiles: Vec::new(),
             occupied,
             gold: STARTING_GOLD,
@@ -145,20 +145,20 @@ impl Game {
             enemy.update(dt, &self.map.waypoints);
         }
 
-        for tower in &mut self.towers {
+        for (_, tower) in &mut self.towers.iter_mut() {
             tower.update_cooldown(dt);
-            if tower.can_fire()
-                && let Some(target_id) = tower.find_target(&self.enemies)
-            {
-                self.projectiles.push(Projectile::new(
-                    tower.pos,
-                    target_id,
-                    tower.kind.damage(),
-                    tower.kind.splash_radius(),
-                    tower.kind.projectiles_effect(),
-                    tower.kind,
-                ));
-                tower.fire();
+            if tower.can_fire() {
+                if let Some(target_id) = tower.find_target(&self.enemies) {
+                    self.projectiles.push(Projectile::new(
+                        tower.pos,
+                        target_id,
+                        tower.kind.damage(),
+                        tower.kind.splash_radius(),
+                        tower.kind.projectiles_effect(),
+                        tower.kind,
+                    ));
+                    tower.fire();
+                }
             }
         }
 
@@ -211,8 +211,12 @@ impl Game {
         if self.spawn_timer <= 0.0 {
             if let Some(entry) = self.spawn_queue.pop_front() {
                 let start = self.map.waypoints[0];
-                self.enemies
-                    .push(Enemy::new(self.next_enemy_id, entry.kind, start, entry.level));
+                self.enemies.push(Enemy::new(
+                    self.next_enemy_id,
+                    entry.kind,
+                    start,
+                    entry.level,
+                ));
                 self.next_enemy_id += 1;
             }
             if let Some(next) = self.spawn_queue.front() {
@@ -222,57 +226,80 @@ impl Game {
     }
 
     fn handle_input(&mut self, ui_mouse: Vec2, world_mouse: Vec2) {
-        if !is_mouse_button_pressed(MouseButton::Left) {
+        if !is_mouse_button_pressed(MouseButton::Left)
+            && !is_mouse_button_pressed(MouseButton::Right)
+        {
             return;
         }
 
-        // Tower selection buttons (fixed UI, ignores zoom).
-        for (kind, rect) in ui::tower_button_rects() {
-            if rect.contains(ui_mouse) {
-                self.selected_tower = if self.selected_tower == Some(kind) {
-                    None
-                } else {
-                    Some(kind)
-                };
+        if is_mouse_button_pressed(MouseButton::Left) {
+            // Tower selection buttons (fixed UI, ignores zoom).
+            for (kind, rect) in ui::tower_button_rects() {
+                if rect.contains(ui_mouse) {
+                    self.selected_tower = if self.selected_tower == Some(kind) {
+                        None
+                    } else {
+                        Some(kind)
+                    };
+                    return;
+                }
+            }
+
+            // Start wave button.
+            if ui::start_wave_button_rect().contains(ui_mouse) && !self.wave_active {
+                self.start_next_wave();
                 return;
             }
-        }
 
-        // Start wave button.
-        if ui::start_wave_button_rect().contains(ui_mouse) && !self.wave_active {
-            self.start_next_wave();
-            return;
-        }
+            // Speed toggle button.
+            if ui::speed_button_rect().contains(ui_mouse) {
+                self.speed_index = (self.speed_index + 1) % SPEED_LEVELS.len();
+                return;
+            }
 
-        // Speed toggle button.
-        if ui::speed_button_rect().contains(ui_mouse) {
-            self.speed_index = (self.speed_index + 1) % SPEED_LEVELS.len();
-            return;
-        }
-
-        // Placing a tower on the map (follows the zoomed/scrolled world).
-        // Whether the cursor is over the play area (vs. the HUD/panel
-        // bars) is a fixed on-screen question, so it must be checked
-        // against `ui_mouse`, not `world_mouse` - the latter is in
-        // absolute map coordinates, which can well exceed `PLAY_H` once
-        // the camera has scrolled or zoomed out.
-        if let Some(kind) = self.selected_tower {
+            // Placing a tower on the map (follows the zoomed/scrolled world).
+            // Whether the cursor is over the play area (vs. the HUD/panel
+            // bars) is a fixed on-screen question, so it must be checked
+            // against `ui_mouse`, not `world_mouse` - the latter is in
+            // absolute map coordinates, which can well exceed `PLAY_H` once
+            // the camera has scrolled or zoomed out.
+            if let Some(kind) = self.selected_tower {
+                if ui_mouse.y < crate::map::TOP_BAR
+                    || ui_mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H
+                {
+                    return;
+                }
+                if self.gold < kind.cost() {
+                    return;
+                }
+                if let Some(spot_index) =
+                    self.map
+                        .nearest_free_spot(world_mouse, &self.occupied, BUILD_CLICK_RADIUS)
+                {
+                    self.gold -= kind.cost();
+                    self.occupied[spot_index] = true;
+                    self.towers.insert(
+                        spot_index,
+                        Tower::new(kind, self.map.build_spots[spot_index]),
+                    );
+                }
+            }
+        } else {
             if ui_mouse.y < crate::map::TOP_BAR
                 || ui_mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H
             {
                 return;
             }
-            if self.gold < kind.cost() {
-                return;
-            }
+
             if let Some(spot_index) =
                 self.map
-                    .nearest_free_spot(world_mouse, &self.occupied, BUILD_CLICK_RADIUS)
+                    .nearest_occupied_spot(world_mouse, &self.occupied, BUILD_CLICK_RADIUS)
             {
-                self.gold -= kind.cost();
-                self.occupied[spot_index] = true;
-                self.towers
-                    .push(Tower::new(kind, self.map.build_spots[spot_index]));
+                if let Some(tower) = self.towers.get(&spot_index) {
+                    self.gold += tower.kind.cost() / 2;
+                    self.occupied[spot_index] = false;
+                    self.towers.remove(&spot_index);
+                }
             }
         }
     }
@@ -303,7 +330,7 @@ impl Game {
         self.map
             .draw_build_spots(&self.occupied, &self.sprites.build_spot);
 
-        for tower in &self.towers {
+        for tower in self.towers.values() {
             let tex = match tower.kind {
                 TowerType::Pebble => &self.sprites.tower_pebble,
                 TowerType::Pepper => &self.sprites.tower_pepper,
