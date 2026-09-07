@@ -3,10 +3,10 @@
 
 use crate::enemy::{Enemy, EnemyType};
 use crate::level::Level;
-use crate::map::Map;
+use crate::map::{LAVA_EFFECT_DURATION, Map};
 use crate::projectile::Projectile;
 use crate::sprites::Sprites;
-use crate::tower::{Tower, TowerType};
+use crate::tower::{EffectType, Tower, TowerType};
 use crate::ui;
 use crate::wave::Wave;
 use macroquad::prelude::*;
@@ -142,6 +142,13 @@ impl Game {
         self.update_spawning(dt);
 
         for enemy in &mut self.enemies {
+            for lava_effect_spot in self.map.lava_effect_spots.clone() {
+                let to_target = enemy.pos - lava_effect_spot;
+                let dist = to_target.length();
+                if dist <= 10.0 && enemy.is_targetable_by(TowerType::Lava) {
+                    enemy.apply_effects(vec![EffectType::Lava]);
+                }
+            }
             enemy.update(dt, &self.map.waypoints);
         }
 
@@ -168,6 +175,11 @@ impl Game {
             if hit {
                 self.projectiles[i].apply_damage(&mut self.enemies);
                 self.projectiles[i].apply_effect(&mut self.enemies);
+                if self.projectiles[i].effects.contains(&EffectType::Lava) {
+                    self.map
+                        .lava_effect_spots
+                        .push(self.projectiles[i].pos.clone());
+                }
                 self.projectiles.remove(i);
             } else {
                 i += 1;
@@ -196,6 +208,7 @@ impl Game {
         }
 
         if self.wave_active && self.spawn_queue.is_empty() && self.enemies.is_empty() {
+            self.map.lava_effect_spots.clear();
             self.wave_active = false;
             if self.wave_number >= self.waves.len() as u32 {
                 self.status = GameStatus::Win;
@@ -336,6 +349,7 @@ impl Game {
                 TowerType::Pepper => &self.sprites.tower_pepper,
                 TowerType::Salt => &self.sprites.tower_salt,
                 TowerType::CostDesTodes => &self.sprites.tower_death,
+                TowerType::Lava => &self.sprites.tower_lava,
             };
             tower.draw(tex);
         }

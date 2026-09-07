@@ -7,7 +7,7 @@ use macroquad::prelude::*;
 use serde::Deserialize;
 
 use crate::sprites::{Direction, Sprites};
-use crate::tower::{EffectType, TowerType, POISON_DPS, SLOW_FACTOR};
+use crate::tower::{EffectType, LAVA_DPS, POISON_DPS, SLOW_FACTOR, TowerType};
 
 /// Size of a single debuff icon in world units.
 const EFFECT_ICON_SIZE: f32 = 10.0;
@@ -237,6 +237,7 @@ impl Enemy {
                 EffectType::Poison => self.hp -= POISON_DPS * dt,
                 // Slow has no per-frame cost; it is read in `update`.
                 EffectType::Slow => {}
+                EffectType::Lava => self.hp -= LAVA_DPS * dt,
             }
         }
 

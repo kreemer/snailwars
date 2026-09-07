@@ -45,6 +45,7 @@ pub struct Sprites {
     pub tower_pepper: Texture2D,
     pub tower_salt: Texture2D,
     pub tower_death: Texture2D,
+    pub tower_lava: Texture2D,
     pub projectile: Texture2D,
     /// Overlay marker drawn over unoccupied build spots; the ground art
     /// itself comes from the level's Tiled tileset (see `crate::map`).
@@ -52,6 +53,7 @@ pub struct Sprites {
     /// Icons drawn below an enemy for each debuff it currently carries.
     pub effect_slow: Texture2D,
     pub effect_poison: Texture2D,
+    pub effect_lava: Texture2D,
     /// Enemy level indicator.
     pub enemy_level: Texture2D,
     /// Full-screen art behind the title screen, loaded from
@@ -83,6 +85,7 @@ impl Sprites {
             armored_big_snail: try_load_enemy_texture("armored_big_snail")
                 .await
                 .unwrap_or_else(|| placeholders.armored_big_snail.clone()),
+            effect_lava: load_effect_texture(EffectType::Lava, &placeholders.effect_lava).await,
             effect_slow: load_effect_texture(EffectType::Slow, &placeholders.effect_slow).await,
             effect_poison: load_effect_texture(EffectType::Poison, &placeholders.effect_poison)
                 .await,
@@ -96,6 +99,7 @@ impl Sprites {
         match effect {
             EffectType::Slow => &self.effect_slow,
             EffectType::Poison => &self.effect_poison,
+            EffectType::Lava => &self.effect_lava,
         }
     }
 
@@ -156,6 +160,11 @@ impl Sprites {
                 Color::new(0.2, 1.0, 0.0, 1.0),
                 Color::new(0.1, 0.25, 0.5, 1.0),
             ),
+            tower_lava: rounded_rect_texture(
+                32,
+                Color::new(1.0, 1.0, 0.0, 1.0),
+                Color::new(0.5, 0.25, 0.5, 1.0),
+            ),
             projectile: circle_texture(
                 8,
                 Color::new(1.0, 0.95, 0.4, 1.0),
@@ -175,6 +184,11 @@ impl Sprites {
                 16,
                 Color::new(0.4, 0.9, 0.2, 1.0),
                 Color::new(0.1, 0.4, 0.05, 1.0),
+            ),
+            effect_lava: circle_texture(
+                16,
+                Color::new(0.9, 0.4, 0.2, 1.0),
+                Color::new(0.4, 0.2, 0.05, 1.0),
             ),
             enemy_level: circle_texture(
                 256,

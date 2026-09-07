@@ -10,11 +10,12 @@ use crate::map::{PANEL_HEIGHT, SCREEN_W, TOP_BAR, WINDOW_H};
 use crate::tower::TowerType;
 use macroquad::prelude::*;
 
-const TOWER_TYPES: [TowerType; 4] = [
+const TOWER_TYPES: [TowerType; 5] = [
     TowerType::Pebble,
     TowerType::Pepper,
     TowerType::Salt,
     TowerType::CostDesTodes,
+    TowerType::Lava,
 ];
 const BUTTON_SIZE: f32 = 84.0;
 const BUTTON_GAP: f32 = 16.0;
@@ -114,6 +115,7 @@ pub fn draw_panel(
             TowerType::Pepper => &sprites.tower_pepper,
             TowerType::Salt => &sprites.tower_salt,
             TowerType::CostDesTodes => &sprites.tower_death,
+            TowerType::Lava => &sprites.tower_lava,
         };
         let icon_size = 40.0;
         draw_texture_ex(

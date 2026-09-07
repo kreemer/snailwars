@@ -20,7 +20,12 @@
 //! rendered to an offscreen target and then scaled/letterboxed onto the
 //! actual (resizable) OS window by [`crate::viewport`].
 
-use crate::level::{Level, PaintedTile, TilesetInfo};
+use std::collections::HashMap;
+
+use crate::{
+    level::{Level, PaintedTile, TilesetInfo},
+    tower::EffectType,
+};
 use macroquad::prelude::*;
 
 pub const SCREEN_W: f32 = 960.0;
@@ -29,10 +34,12 @@ pub const TOP_BAR: f32 = 40.0;
 pub const PANEL_HEIGHT: f32 = 100.0;
 pub const WINDOW_H: f32 = TOP_BAR + PLAY_H + PANEL_HEIGHT;
 pub const TILE: f32 = 64.0;
+pub const LAVA_EFFECT_DURATION: f32 = 15.0;
 
 pub struct Map {
     pub waypoints: Vec<Vec2>,
     pub build_spots: Vec<Vec2>,
+    pub lava_effect_spots: Vec<Vec2>,
     /// The `Ground` layer's tile grid, `[row][col]` (or `None` for an
     /// empty cell).
     ground_tiles: Vec<Vec<Option<PaintedTile>>>,
@@ -68,6 +75,7 @@ impl Map {
         Map {
             waypoints: level.waypoints.clone(),
             build_spots: level.build_spots.clone(),
+            lava_effect_spots: vec![],
             ground_tiles: level.ground_tiles.clone(),
             env_tiles: level.env_tiles.clone(),
             tilesets: level.tilesets.clone(),

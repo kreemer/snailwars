@@ -10,12 +10,15 @@ pub enum TowerType {
     Pepper,
     Salt,
     CostDesTodes,
+    Lava,
 }
 
 /// Speed multiplier applied to an enemy carrying [`EffectType::Slow`].
 pub const SLOW_FACTOR: f32 = 0.75;
 /// Damage per second dealt by [`EffectType::Poison`].
 pub const POISON_DPS: f32 = 8.0;
+/// Damage per second dealt by [`EffectType::Lava`].
+pub const LAVA_DPS: f32 = 12.0;
 
 /// A temporary debuff an enemy can carry. Effects are applied by
 /// projectiles and expire on their own after [`EffectType::duration`].
@@ -23,19 +26,21 @@ pub const POISON_DPS: f32 = 8.0;
 pub enum EffectType {
     Slow,
     Poison,
+    Lava,
 }
 
 impl EffectType {
     /// Every effect, in a fixed order. Enemies store their effects in a
     /// `HashMap`, whose iteration order is not stable, so rendering and
     /// any other ordered processing iterates this instead.
-    pub const ALL: [EffectType; 2] = [EffectType::Slow, EffectType::Poison];
+    pub const ALL: [EffectType; 3] = [EffectType::Slow, EffectType::Poison, EffectType::Lava];
 
     /// How long the effect lasts, in seconds, when freshly applied.
     pub fn duration(self) -> f32 {
         match self {
             EffectType::Slow => 10.0,
             EffectType::Poison => 4.0,
+            EffectType::Lava => 8.0,
         }
     }
 
@@ -45,6 +50,7 @@ impl EffectType {
         match self {
             EffectType::Slow => "slow",
             EffectType::Poison => "poison",
+            EffectType::Lava => "lava",
         }
     }
 }
@@ -56,6 +62,7 @@ impl TowerType {
             TowerType::Pepper => 75,
             TowerType::Salt => 150,
             TowerType::CostDesTodes => 300,
+            TowerType::Lava => 100,
         }
     }
 
@@ -65,6 +72,7 @@ impl TowerType {
             TowerType::Pepper => 100.0,
             TowerType::Salt => 150.0,
             TowerType::CostDesTodes => 200.0,
+            TowerType::Lava => 200.0,
         }
     }
 
@@ -74,6 +82,7 @@ impl TowerType {
             TowerType::Pepper => 3.0,
             TowerType::Salt => 30.0,
             TowerType::CostDesTodes => 50.0,
+            TowerType::Lava => 0.0,
         }
     }
 
@@ -84,6 +93,7 @@ impl TowerType {
             TowerType::Pepper => 5.0,
             TowerType::Salt => 0.6,
             TowerType::CostDesTodes => 0.5,
+            TowerType::Lava => 0.2,
         }
     }
 
@@ -102,6 +112,7 @@ impl TowerType {
             TowerType::Pepper => "Pepper Sprayer",
             TowerType::Salt => "Salt Cannon",
             TowerType::CostDesTodes => "Kost des Todes",
+            TowerType::Lava => "Lava",
         }
     }
 
@@ -109,6 +120,7 @@ impl TowerType {
         match self {
             TowerType::Salt => vec![EffectType::Slow],
             TowerType::Pepper => vec![EffectType::Poison],
+            TowerType::Lava => vec![EffectType::Lava],
             _ => vec![],
         }
     }
