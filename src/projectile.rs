@@ -9,7 +9,7 @@ use std::f32::consts::PI;
 
 use crate::{
     enemy::Enemy,
-    tower::{EffectType, TowerType},
+    tower::{EffectType, Tower, TowerType},
 };
 use macroquad::prelude::*;
 
@@ -53,6 +53,16 @@ impl Shot {
             splash_radius: kind.splash_radius(),
             effects: kind.projectiles_effect(),
             tower_kind: kind,
+        }
+    }
+
+    /// The attack a placed `tower` makes against `target_id`, with its
+    /// damage and splash scaled by the tower's level.
+    pub fn from_placed(tower: &Tower, target_id: u32) -> Self {
+        Shot {
+            damage: tower.damage(),
+            splash_radius: tower.splash_radius(),
+            ..Shot::from_tower(tower.kind, target_id)
         }
     }
 

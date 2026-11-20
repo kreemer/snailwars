@@ -56,6 +56,9 @@ pub struct Game {
 
     next_enemy_id: u32,
     selected_tower: Option<TowerType>,
+    /// Build-spot index of the placed tower whose Sell/Upgrade menu is
+    /// open, if any.
+    open_menu: Option<usize>,
     status: GameStatus,
     speed_index: usize,
 }
@@ -93,6 +96,7 @@ impl Game {
             spawn_timer: 0.0,
             next_enemy_id: 0,
             selected_tower: None,
+            open_menu: None,
             status: GameStatus::Playing,
             speed_index: 0,
         }
@@ -164,7 +168,7 @@ impl Game {
             tower.update_cooldown(dt);
             if tower.can_fire() {
                 if let Some(target_id) = tower.find_target(&self.enemies) {
-                    let shot = Shot::from_tower(tower.kind, target_id);
+                    let shot = Shot::from_placed(tower, target_id);
                     if tower.kind.fires_beam() {
                         fire_beam(
                             tower.pos,
@@ -264,82 +268,114 @@ impl Game {
     }
 
     fn handle_input(&mut self, ui_mouse: Vec2, world_mouse: Vec2) {
-        if !is_mouse_button_pressed(MouseButton::Left)
-            && !is_mouse_button_pressed(MouseButton::Right)
+        if !is_mouse_button_pressed(MouseButton::Left) {
+            return;
+        }
+
+        // Tower selection buttons (fixed UI, ignores zoom).
+        for (kind, rect) in ui::tower_button_rects() {
+            if rect.contains(ui_mouse) {
+                self.selected_tower = if self.selected_tower == Some(kind) {
+                    None
+                } else {
+                    Some(kind)
+                };
+                self.open_menu = None;
+                return;
+            }
+        }
+
+        // Start wave button.
+        if ui::start_wave_button_rect().contains(ui_mouse) && !self.wave_active {
+            self.start_next_wave();
+            return;
+        }
+
+        // Speed toggle button.
+        if ui::speed_button_rect().contains(ui_mouse) {
+            self.speed_index = (self.speed_index + 1) % SPEED_LEVELS.len();
+            return;
+        }
+
+        // Everything below happens on the map (follows the zoomed/scrolled
+        // world). Whether the cursor is over the play area (vs. the
+        // HUD/panel bars) is a fixed on-screen question, so it must be
+        // checked against `ui_mouse`, not `world_mouse` - the latter is in
+        // absolute map coordinates, which can well exceed `PLAY_H` once
+        // the camera has scrolled or zoomed out.
+        if ui_mouse.y < crate::map::TOP_BAR
+            || ui_mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H
         {
             return;
         }
 
-        if is_mouse_button_pressed(MouseButton::Left) {
-            // Tower selection buttons (fixed UI, ignores zoom).
-            for (kind, rect) in ui::tower_button_rects() {
-                if rect.contains(ui_mouse) {
-                    self.selected_tower = if self.selected_tower == Some(kind) {
-                        None
-                    } else {
-                        Some(kind)
-                    };
-                    return;
-                }
-            }
+        if self.handle_tower_menu_click(world_mouse) {
+            return;
+        }
 
-            // Start wave button.
-            if ui::start_wave_button_rect().contains(ui_mouse) && !self.wave_active {
-                self.start_next_wave();
+        // Clicking a placed tower opens its menu.
+        if let Some(spot_index) =
+            self.map
+                .nearest_occupied_spot(world_mouse, &self.occupied, BUILD_CLICK_RADIUS)
+        {
+            self.open_menu = Some(spot_index);
+            self.selected_tower = None;
+            return;
+        }
+
+        // Placing a tower.
+        if let Some(kind) = self.selected_tower {
+            if self.gold < kind.cost() {
                 return;
             }
-
-            // Speed toggle button.
-            if ui::speed_button_rect().contains(ui_mouse) {
-                self.speed_index = (self.speed_index + 1) % SPEED_LEVELS.len();
-                return;
-            }
-
-            // Placing a tower on the map (follows the zoomed/scrolled world).
-            // Whether the cursor is over the play area (vs. the HUD/panel
-            // bars) is a fixed on-screen question, so it must be checked
-            // against `ui_mouse`, not `world_mouse` - the latter is in
-            // absolute map coordinates, which can well exceed `PLAY_H` once
-            // the camera has scrolled or zoomed out.
-            if let Some(kind) = self.selected_tower {
-                if ui_mouse.y < crate::map::TOP_BAR
-                    || ui_mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H
-                {
-                    return;
-                }
-                if self.gold < kind.cost() {
-                    return;
-                }
-                if let Some(spot_index) =
-                    self.map
-                        .nearest_free_spot(world_mouse, &self.occupied, BUILD_CLICK_RADIUS)
-                {
-                    self.gold -= kind.cost();
-                    self.occupied[spot_index] = true;
-                    self.towers.insert(
-                        spot_index,
-                        Tower::new(kind, self.map.build_spots[spot_index]),
-                    );
-                }
-            }
-        } else {
-            if ui_mouse.y < crate::map::TOP_BAR
-                || ui_mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H
-            {
-                return;
-            }
-
             if let Some(spot_index) =
                 self.map
-                    .nearest_occupied_spot(world_mouse, &self.occupied, BUILD_CLICK_RADIUS)
+                    .nearest_free_spot(world_mouse, &self.occupied, BUILD_CLICK_RADIUS)
             {
-                if let Some(tower) = self.towers.get(&spot_index) {
-                    self.gold += tower.kind.cost() / 2;
-                    self.occupied[spot_index] = false;
-                    self.towers.remove(&spot_index);
-                }
+                self.gold -= kind.cost();
+                self.occupied[spot_index] = true;
+                self.towers.insert(
+                    spot_index,
+                    Tower::new(kind, self.map.build_spots[spot_index]),
+                );
             }
         }
+    }
+
+    /// Handle a left click while a tower menu is open. Returns `true` if
+    /// the click was consumed by the menu. Clicking anywhere outside the
+    /// menu closes it (and lets the click fall through).
+    fn handle_tower_menu_click(&mut self, world_mouse: Vec2) -> bool {
+        let Some(spot_index) = self.open_menu else {
+            return false;
+        };
+        let Some(tower) = self.towers.get_mut(&spot_index) else {
+            self.open_menu = None;
+            return false;
+        };
+        let layout = ui::tower_menu_layout(tower.pos);
+
+        if layout.upgrade.contains(world_mouse) {
+            if let Some(cost) = tower.upgrade_cost() {
+                if self.gold >= cost {
+                    tower.upgrade();
+                    self.gold -= cost;
+                }
+            }
+            return true;
+        }
+        if layout.sell.contains(world_mouse) {
+            self.gold += tower.sell_value();
+            self.occupied[spot_index] = false;
+            self.towers.remove(&spot_index);
+            self.open_menu = None;
+            return true;
+        }
+        if layout.panel.contains(world_mouse) {
+            return true;
+        }
+        self.open_menu = None;
+        false
     }
 
     fn start_next_wave(&mut self) {
@@ -422,6 +458,17 @@ impl Game {
                     Color::new(1.0, 1.0, 1.0, 0.5),
                 );
             }
+        }
+
+        if let Some(tower) = self.open_menu.and_then(|i| self.towers.get(&i)) {
+            draw_circle_lines(
+                tower.pos.x,
+                tower.pos.y,
+                tower.range(),
+                1.5,
+                Color::new(1.0, 1.0, 1.0, 0.5),
+            );
+            ui::draw_tower_menu(tower, self.gold, world_mouse);
         }
     }
 

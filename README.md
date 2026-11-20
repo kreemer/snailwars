@@ -35,6 +35,9 @@ Delete that file to reset all unlocks.
 - **Click a tower button** (bottom-left panel) to select a tower type, then
   **click a highlighted spot** on the map to place it (if you can afford it).
 - Click the selected tower button again to deselect.
+- **Click a placed tower** to open its menu: **Upgrade** raises its level
+  (see [Tower levels](#tower-levels)), **Sell** removes it and refunds
+  half of all gold spent on it. Clicking anywhere else closes the menu.
 - **Start Wave** button (bottom-right) begins the next wave of enemies.
 - **Speed button** (1x/2x/3x, next to Start Wave) or **Tab** cycles the
   simulation speed, so you can fast-forward through waves.
@@ -52,6 +55,16 @@ Delete that file to reset all unlocks.
 | Pepper Sprayer  | 75g  | 3      | 100   | 5.0/s     | Fast, applies Poison |
 | Salt Cannon     | 150g | 30     | 150   | 0.6/s     | Splash damage, applies Slow |
 | Kost des Todes  | 300g | 50     | 200   | 0.5/s     | Heavy splash; can hit flying enemies |
+
+### Tower levels
+
+Every tower starts at level 1 (shown in the badge at its corner) and can
+be upgraded up to level 5 from its menu. Upgrading from level `N` costs
+`base cost x N` gold (e.g. a Pebble Turret: 50g, 100g, 150g, 200g).
+
+Each level above 1 adds +25% damage, fire rate, and splash radius
+(level 5 = 2x); range stays the same. Selling refunds 50% of the total
+gold spent on the tower, upgrades included.
 
 ## Effects
 

@@ -7,7 +7,7 @@
 //! [`crate::viewport::Viewport::to_ui_logical`].
 
 use crate::map::{PANEL_HEIGHT, SCREEN_W, TOP_BAR, WINDOW_H};
-use crate::tower::TowerType;
+use crate::tower::{MAX_LEVEL, Tower, TowerType};
 use macroquad::prelude::*;
 
 const TOWER_TYPES: [TowerType; 6] = [
@@ -195,6 +195,97 @@ pub fn draw_panel(
     );
 }
 
+// --- Placed tower menu ----------------------------------------------
+//
+// Unlike the rest of this module, the tower menu lives in *world*
+// coordinates: it is drawn by [`crate::game::Game::draw_world`] next to
+// the tower it belongs to (so it follows scroll/zoom) and must be
+// hit-tested with the world-space mouse position.
+
+const TOWER_MENU_SIZE: Vec2 = vec2(160.0, 108.0);
+const TOWER_MENU_BUTTON_H: f32 = 30.0;
+const TOWER_MENU_PADDING: f32 = 8.0;
+/// Gap between the tower's center and the nearest menu edge.
+const TOWER_MENU_OFFSET: f32 = 28.0;
+
+/// World-space rects of the menu opened on a placed tower.
+pub struct TowerMenuLayout {
+    pub panel: Rect,
+    pub upgrade: Rect,
+    pub sell: Rect,
+}
+
+/// Lay the menu out above the tower at `tower_pos`, or below it when
+/// there is no room between the tower and the top of the map.
+pub fn tower_menu_layout(tower_pos: Vec2) -> TowerMenuLayout {
+    let x = tower_pos.x - TOWER_MENU_SIZE.x / 2.0;
+    let above = tower_pos.y - TOWER_MENU_OFFSET - TOWER_MENU_SIZE.y;
+    let y = if above >= TOP_BAR {
+        above
+    } else {
+        tower_pos.y + TOWER_MENU_OFFSET
+    };
+    let panel = Rect::new(x, y, TOWER_MENU_SIZE.x, TOWER_MENU_SIZE.y);
+    let button_w = panel.w - 2.0 * TOWER_MENU_PADDING;
+    let button_x = panel.x + TOWER_MENU_PADDING;
+    let sell_y = panel.y + panel.h - TOWER_MENU_PADDING - TOWER_MENU_BUTTON_H;
+    let upgrade_y = sell_y - TOWER_MENU_PADDING / 2.0 - TOWER_MENU_BUTTON_H;
+    TowerMenuLayout {
+        panel,
+        upgrade: Rect::new(button_x, upgrade_y, button_w, TOWER_MENU_BUTTON_H),
+        sell: Rect::new(button_x, sell_y, button_w, TOWER_MENU_BUTTON_H),
+    }
+}
+
+/// Draw the Sell/Upgrade menu for `tower`. `world_mouse` is the mouse in
+/// world coordinates, used for hover highlighting.
+pub fn draw_tower_menu(tower: &Tower, gold: u32, world_mouse: Vec2) {
+    let layout = tower_menu_layout(tower.pos);
+    let panel = layout.panel;
+    draw_rectangle(
+        panel.x,
+        panel.y,
+        panel.w,
+        panel.h,
+        Color::new(0.1, 0.1, 0.12, 0.92),
+    );
+    draw_rectangle_lines(panel.x, panel.y, panel.w, panel.h, 2.0, WHITE);
+
+    draw_text(
+        tower.kind.name(),
+        panel.x + TOWER_MENU_PADDING,
+        panel.y + 18.0,
+        18.0,
+        Color::new(1.0, 1.0, 0.8, 1.0),
+    );
+    draw_text(
+        format!("Level {}/{MAX_LEVEL}", tower.level),
+        panel.x + TOWER_MENU_PADDING,
+        panel.y + 34.0,
+        16.0,
+        GOLD,
+    );
+
+    let (upgrade_label, upgrade_enabled) = match tower.upgrade_cost() {
+        Some(cost) => (format!("Upgrade ({cost}g)"), gold >= cost),
+        None => ("Max level".to_owned(), false),
+    };
+    draw_button_sized(
+        layout.upgrade,
+        &upgrade_label,
+        upgrade_enabled,
+        upgrade_enabled && layout.upgrade.contains(world_mouse),
+        18.0,
+    );
+    draw_button_sized(
+        layout.sell,
+        &format!("Sell (+{}g)", tower.sell_value()),
+        true,
+        layout.sell.contains(world_mouse),
+        18.0,
+    );
+}
+
 fn draw_dim_overlay() {
     draw_rectangle(0.0, 0.0, SCREEN_W, WINDOW_H, Color::new(0.0, 0.0, 0.0, 0.6));
 }
@@ -223,6 +314,10 @@ fn draw_centered_title(title: &str, subtitle: &str) {
 /// Draw a labelled menu button. Disabled buttons are dimmed and are
 /// never reported as hovered by the screens below.
 fn draw_button(rect: Rect, label: &str, enabled: bool, hovered: bool) {
+    draw_button_sized(rect, label, enabled, hovered, 24.0);
+}
+
+fn draw_button_sized(rect: Rect, label: &str, enabled: bool, hovered: bool, size: f32) {
     let fill = match (enabled, hovered) {
         (false, _) => Color::new(0.15, 0.15, 0.17, 0.9),
         (true, true) => Color::new(0.30, 0.55, 0.30, 0.95),
@@ -235,7 +330,6 @@ fn draw_button(rect: Rect, label: &str, enabled: bool, hovered: bool) {
     };
     draw_rectangle(rect.x, rect.y, rect.w, rect.h, fill);
     draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, text_color);
-    let size = 24.0;
     let dims = measure_text(label, None, size as u16, 1.0);
     draw_text(
         label,
