@@ -5,15 +5,37 @@
 //! the first level is always available, and every later level opens up
 //! once the one before it has been completed.
 //!
-//! Progress is stored in `save.ron` in the working directory (the same
-//! place `assets/` is resolved from). A missing or unreadable save file
-//! is treated as "nothing completed yet" rather than an error - losing
-//! progress is preferable to refusing to start the game.
+//! Progress is stored under the user's XDG data directory. An existing
+//! `save.ron` in the working directory is imported on first launch.
 
 use crate::catalog::LevelCatalog;
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 
-const SAVE_PATH: &str = "save.ron";
+const SAVE_FILE: &str = "save.ron";
+
+fn data_home(xdg_data_home: Option<&OsStr>, home: Option<&OsStr>) -> Option<PathBuf> {
+    xdg_data_home
+        .map(Path::new)
+        .filter(|path| path.is_absolute())
+        .map(Path::to_path_buf)
+        .or_else(|| {
+            home.map(Path::new)
+                .filter(|path| path.is_absolute())
+                .map(|path| path.join(".local/share"))
+        })
+}
+
+fn save_path() -> Option<PathBuf> {
+    let xdg = std::env::var_os("XDG_DATA_HOME");
+    let home = std::env::var_os("HOME");
+    let path = data_home(xdg.as_deref(), home.as_deref());
+    if path.is_none() {
+        eprintln!("cannot locate save file: set XDG_DATA_HOME or HOME to an absolute path");
+    }
+    path.map(|path| path.join("snailwars").join(SAVE_FILE))
+}
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Progress {
@@ -22,18 +44,57 @@ pub struct Progress {
 }
 
 impl Progress {
-    /// Read `save.ron`, falling back to empty progress if it is missing
-    /// or cannot be parsed.
+    /// Read progress from XDG data home, importing a working-directory save
+    /// if the new save does not exist yet.
     pub fn load() -> Self {
-        let Ok(text) = std::fs::read_to_string(SAVE_PATH) else {
-            return Progress::default();
+        let Some(path) = save_path() else {
+            return Self::default();
         };
-        ron::from_str(&text).unwrap_or_default()
+        Self::load_from_paths(&path, Path::new(SAVE_FILE))
     }
 
-    /// Write `save.ron`. Failures are reported on stderr but never
-    /// interrupt play.
+    fn load_from_paths(path: &Path, legacy_path: &Path) -> Self {
+        let (text, migrate) = match std::fs::read_to_string(path) {
+            Ok(text) => (text, false),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                match std::fs::read_to_string(legacy_path) {
+                    Ok(text) => (text, true),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                        return Self::default();
+                    }
+                    Err(error) => {
+                        eprintln!("failed to read '{}': {error}", legacy_path.display());
+                        return Self::default();
+                    }
+                }
+            }
+            Err(error) => {
+                eprintln!("failed to read '{}': {error}", path.display());
+                return Self::default();
+            }
+        };
+        let progress: Self = match ron::from_str(&text) {
+            Ok(progress) => progress,
+            Err(error) => {
+                let source = if migrate { legacy_path } else { path };
+                eprintln!("failed to parse '{}': {error}", source.display());
+                return Self::default();
+            }
+        };
+        if migrate {
+            progress.save_to_path(path);
+        }
+        progress
+    }
+
+    /// Write progress to XDG data home. Failures are reported on stderr.
     pub fn save(&self) {
+        if let Some(path) = save_path() {
+            self.save_to_path(&path);
+        }
+    }
+
+    fn save_to_path(&self, path: &Path) {
         let text = match ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default()) {
             Ok(text) => text,
             Err(e) => {
@@ -41,8 +102,16 @@ impl Progress {
                 return;
             }
         };
-        if let Err(e) = std::fs::write(SAVE_PATH, text) {
-            eprintln!("failed to write progress to '{SAVE_PATH}': {e}");
+        let directory = path.parent().expect("save path has a parent");
+        if let Err(error) = std::fs::create_dir_all(directory) {
+            eprintln!(
+                "failed to create save directory '{}': {error}",
+                directory.display()
+            );
+            return;
+        }
+        if let Err(error) = std::fs::write(path, text) {
+            eprintln!("failed to write progress to '{}': {error}", path.display());
         }
     }
 
@@ -74,6 +143,36 @@ impl Progress {
 mod tests {
     use super::*;
     use crate::catalog::LevelEntry;
+
+    #[test]
+    fn xdg_data_home_takes_precedence_over_home() {
+        assert_eq!(
+            data_home(Some(OsStr::new("/data")), Some(OsStr::new("/home/user"))),
+            Some(PathBuf::from("/data"))
+        );
+        assert_eq!(
+            data_home(Some(OsStr::new("relative")), Some(OsStr::new("/home/user"))),
+            Some(PathBuf::from("/home/user/.local/share"))
+        );
+        assert_eq!(data_home(None, None), None);
+    }
+
+    #[test]
+    fn legacy_save_is_imported_without_overwriting_newer_progress() {
+        let dir = std::env::temp_dir().join(format!("snailwars-progress-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let legacy = dir.join("save.ron");
+        let new = dir.join("data/snailwars/save.ron");
+        std::fs::write(&legacy, "(completed: [\"old\"])").unwrap();
+
+        assert!(Progress::load_from_paths(&new, &legacy).is_completed("old"));
+        assert!(new.exists());
+        std::fs::write(&legacy, "(completed: [\"changed\"])").unwrap();
+        assert!(Progress::load_from_paths(&new, &legacy).is_completed("old"));
+        assert!(!Progress::load_from_paths(&new, &legacy).is_completed("changed"));
+
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     fn catalog(ids: &[&str]) -> LevelCatalog {
         LevelCatalog::from_entries(

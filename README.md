@@ -31,8 +31,8 @@ tag is pushed. The workflow also runs manually via **Run workflow**.
 
 Extract the `.tar.gz` (if downloaded from Actions, unzip the artifact first)
 and run `run.sh` from the extracted `snailwars` directory. Keep `assets/`
-beside the binary; the launcher sets the working directory so maps and
-saved progress work when launched from elsewhere.
+beside the binary; the launcher sets the working directory so maps load
+when launched from elsewhere.
 
 ## Screens
 
@@ -43,8 +43,11 @@ lists every level from `assets/maps/levels.ron`. Only unlocked maps can
 be picked - a map unlocks once the map before it has been beaten, and
 the first one is always available.
 
-Progress is stored in `save.ron` next to where the game is run from.
-Delete that file to reset all unlocks.
+Progress is stored in `${XDG_DATA_HOME:-$HOME/.local/share}/snailwars/save.ron`.
+If `XDG_DATA_HOME` is unset, it defaults to `$HOME/.local/share`. An existing
+`save.ron` in the working directory is imported when no save exists in the
+new location; the old file is left untouched. To reset all unlocks, delete
+the new save file and any legacy `save.ron` in the launch directory.
 
 ## Controls
 
@@ -239,7 +242,7 @@ you use for path/start/end/build cells.
   level loading/switching, and end-of-level flow
 - `src/catalog.rs` — the level list loaded from `assets/maps/levels.ron`
 - `src/progress.rs` — which levels are beaten/unlocked, persisted to
-  `save.ron`
+  the XDG data directory
 - `src/game.rs` — core game state, update/draw orchestration
 - `src/level.rs` — loads a level's `.tmx` map and `.waves.ron` wave file
   (path tracing, tile parsing)
