@@ -6,6 +6,7 @@
 //! mouse position converted with
 //! [`crate::viewport::Viewport::to_ui_logical`].
 
+use crate::audio::{AudioChannel, AudioManager};
 use crate::map::{PANEL_HEIGHT, SCREEN_W, TOP_BAR, WINDOW_H};
 use crate::tower::{MAX_LEVEL, Tower, TowerType};
 use macroquad::prelude::*;
@@ -44,6 +45,42 @@ pub fn draw_hud(gold: u32, lives: u32, wave_number: u32, total_waves: u32) {
         26.0,
         WHITE,
     );
+}
+
+pub fn hud_audio_buttons() -> [(AudioChannel, Rect); 2] {
+    [
+        (AudioChannel::Music, Rect::new(635.0, 5.0, 150.0, 30.0)),
+        (AudioChannel::Effects, Rect::new(795.0, 5.0, 155.0, 30.0)),
+    ]
+}
+
+pub fn title_audio_buttons() -> [(AudioChannel, Rect); 2] {
+    [
+        (AudioChannel::Music, Rect::new(250.0, 600.0, 220.0, 56.0)),
+        (AudioChannel::Effects, Rect::new(490.0, 600.0, 220.0, 56.0)),
+    ]
+}
+
+pub fn draw_audio_buttons(
+    buttons: [(AudioChannel, Rect); 2],
+    audio: &AudioManager,
+    ui_mouse: Vec2,
+    font_size: f32,
+) {
+    for (channel, rect) in buttons {
+        let name = match channel {
+            AudioChannel::Music => "Music",
+            AudioChannel::Effects => "Effects",
+        };
+        let state = if audio.enabled(channel) { "On" } else { "Off" };
+        draw_button_sized(
+            rect,
+            &format!("{name}: {state}"),
+            true,
+            rect.contains(ui_mouse),
+            font_size,
+        );
+    }
 }
 
 /// Draw the virtual cursor used for gamepad navigation.
@@ -564,5 +601,25 @@ pub fn draw_end_overlay(title: &str, subtitle: &str, actions: &[EndAction], ui_m
     draw_centered_title(title, subtitle);
     for (action, rect) in end_overlay_buttons(actions) {
         draw_button(rect, action.label(), true, rect.contains(ui_mouse));
+    }
+}
+
+#[cfg(test)]
+mod audio_tests {
+    use super::*;
+
+    #[test]
+    fn audio_buttons_do_not_overlap_gameplay_or_title_actions() {
+        for (_, button) in hud_audio_buttons() {
+            assert!(button.y >= 0.0 && button.y + button.h <= TOP_BAR);
+        }
+        for (_, button) in title_audio_buttons() {
+            assert!(button.y + button.h <= WINDOW_H);
+            assert!(
+                title_buttons()
+                    .iter()
+                    .all(|(_, action)| !button.overlaps(action))
+            );
+        }
     }
 }

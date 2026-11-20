@@ -43,6 +43,10 @@ Delete that file to reset all unlocks.
 - **Start Wave** button (bottom-right) begins the next wave of enemies.
 - **Speed button** (1x/2x/3x, next to Start Wave) or **Tab** cycles the
   simulation speed, so you can fast-forward through waves.
+- **Music** and **Effects** buttons on the title screen and in the in-game
+  HUD independently switch background music and sound effects on or off.
+  Both start on; changes last until you close the game. Re-enabling music
+  during a level restarts its loop.
 - **Esc** leaves a level and returns to the title screen.
 - After winning, choose **Next Level** (if there is one) or **Back to
   Title**; after losing, choose **Restart** or **Back to Title**.

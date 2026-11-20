@@ -12,7 +12,7 @@
 //! cache of already-loaded tileset textures (levels are switchable, so
 //! their textures can no longer be loaded once at startup).
 
-use crate::audio::{AudioEvent, AudioManager};
+use crate::audio::{AudioChannel, AudioEvent, AudioManager};
 use crate::catalog::LevelCatalog;
 use crate::game::{Game, GameStatus};
 use crate::input::{Controls, Input};
@@ -109,8 +109,12 @@ impl App {
     fn frame_title(&mut self, ui_mouse: Vec2, clicked: bool) -> Transition {
         self.begin_menu_frame();
         ui::draw_title_screen(self.sprites.title_background.as_ref(), ui_mouse);
+        ui::draw_audio_buttons(ui::title_audio_buttons(), &self.audio, ui_mouse, 22.0);
 
         if !clicked {
+            return Transition::Stay;
+        }
+        if handle_audio_click(&mut self.audio, ui_mouse, ui::title_audio_buttons()) {
             return Transition::Stay;
         }
         for (action, rect) in ui::title_buttons() {
@@ -177,6 +181,11 @@ impl App {
         let level_index = session.level_index;
 
         let running = *game.status() == GameStatus::Playing;
+        let clicked = if running && controls.clicked {
+            !handle_audio_click(&mut self.audio, ui_mouse, ui::hud_audio_buttons())
+        } else {
+            controls.clicked
+        };
         if running {
             self.viewport.handle_zoom_input();
             self.viewport.handle_scroll_input(dt);
@@ -184,13 +193,7 @@ impl App {
                 .handle_controller_input(dt, controls.camera_pan, controls.zoom_steps);
         }
         let world_mouse = self.viewport.to_world_logical(controls.screen_mouse);
-        for event in game.update(
-            dt,
-            ui_mouse,
-            world_mouse,
-            controls.clicked,
-            controls.speed_pressed,
-        ) {
+        for event in game.update(dt, ui_mouse, world_mouse, clicked, controls.speed_pressed) {
             self.audio.play(event);
         }
 
@@ -198,6 +201,9 @@ impl App {
         game.draw_world(ui_mouse, world_mouse);
         self.viewport.begin_ui();
         game.draw_ui();
+        if running {
+            ui::draw_audio_buttons(ui::hud_audio_buttons(), &self.audio, ui_mouse, 15.0);
+        }
 
         if *game.status() == GameStatus::Playing {
             return if is_key_pressed(KeyCode::Escape) || controls.cancelled {
@@ -333,4 +339,19 @@ impl App {
             .insert(path.to_owned(), texture.clone());
         texture
     }
+}
+
+fn handle_audio_click(
+    audio: &mut AudioManager,
+    ui_mouse: Vec2,
+    buttons: [(AudioChannel, Rect); 2],
+) -> bool {
+    for (channel, rect) in buttons {
+        if rect.contains(ui_mouse) {
+            audio.toggle(channel);
+            audio.play(AudioEvent::UiClick);
+            return true;
+        }
+    }
+    false
 }

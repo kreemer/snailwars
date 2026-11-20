@@ -4,6 +4,44 @@ const SAMPLE_RATE: u32 = 22_050;
 const EFFECT_VOLUME: f32 = 0.45;
 const MUSIC_VOLUME: f32 = 0.12;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AudioChannel {
+    Music,
+    Effects,
+}
+
+struct AudioSettings {
+    music: bool,
+    effects: bool,
+}
+
+impl Default for AudioSettings {
+    fn default() -> Self {
+        Self {
+            music: true,
+            effects: true,
+        }
+    }
+}
+
+impl AudioSettings {
+    fn enabled(&self, channel: AudioChannel) -> bool {
+        match channel {
+            AudioChannel::Music => self.music,
+            AudioChannel::Effects => self.effects,
+        }
+    }
+
+    fn toggle(&mut self, channel: AudioChannel) -> bool {
+        let enabled = match channel {
+            AudioChannel::Music => &mut self.music,
+            AudioChannel::Effects => &mut self.effects,
+        };
+        *enabled = !*enabled;
+        *enabled
+    }
+}
+
 #[derive(Clone, Copy)]
 pub enum AudioEvent {
     UiClick,
@@ -45,6 +83,8 @@ impl AudioEvent {
 pub struct AudioManager {
     effects: Vec<Sound>,
     music: Sound,
+    settings: AudioSettings,
+    level_active: bool,
     music_playing: bool,
 }
 
@@ -67,11 +107,16 @@ impl AudioManager {
         AudioManager {
             effects,
             music,
+            settings: AudioSettings::default(),
+            level_active: false,
             music_playing: false,
         }
     }
 
     pub fn play(&self, event: AudioEvent) {
+        if !self.settings.effects {
+            return;
+        }
         play_sound(
             &self.effects[event.index()],
             PlaySoundParams {
@@ -81,7 +126,32 @@ impl AudioManager {
         );
     }
 
+    pub fn enabled(&self, channel: AudioChannel) -> bool {
+        self.settings.enabled(channel)
+    }
+
+    pub fn toggle(&mut self, channel: AudioChannel) {
+        let enabled = self.settings.toggle(channel);
+        match channel {
+            AudioChannel::Music if enabled && self.level_active => self.play_music(),
+            AudioChannel::Music if !enabled => self.pause_music(),
+            AudioChannel::Effects if !enabled => {
+                for effect in &self.effects {
+                    stop_sound(effect);
+                }
+            }
+            _ => {}
+        }
+    }
+
     pub fn start_music(&mut self) {
+        self.level_active = true;
+        if self.settings.music {
+            self.play_music();
+        }
+    }
+
+    fn play_music(&mut self) {
         if self.music_playing {
             stop_sound(&self.music);
         }
@@ -96,6 +166,11 @@ impl AudioManager {
     }
 
     pub fn stop_music(&mut self) {
+        self.level_active = false;
+        self.pause_music();
+    }
+
+    fn pause_music(&mut self) {
         if self.music_playing {
             stop_sound(&self.music);
             self.music_playing = false;
@@ -189,5 +264,20 @@ mod tests {
 
         assert_eq!(samples.len(), (SAMPLE_RATE as f32 * 0.16 * 16.0) as usize);
         assert!(samples.iter().any(|sample| *sample != 0));
+    }
+
+    #[test]
+    fn music_and_effects_toggle_independently() {
+        let mut settings = AudioSettings::default();
+        assert!(settings.enabled(AudioChannel::Music));
+        assert!(settings.enabled(AudioChannel::Effects));
+
+        assert!(!settings.toggle(AudioChannel::Music));
+        assert!(!settings.enabled(AudioChannel::Music));
+        assert!(settings.enabled(AudioChannel::Effects));
+        assert!(!settings.toggle(AudioChannel::Effects));
+        assert!(settings.toggle(AudioChannel::Music));
+        assert!(settings.enabled(AudioChannel::Music));
+        assert!(!settings.enabled(AudioChannel::Effects));
     }
 }
