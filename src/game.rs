@@ -3,8 +3,8 @@
 
 use crate::enemy::{Enemy, EnemyType};
 use crate::level::Level;
-use crate::map::{LAVA_EFFECT_DURATION, Map};
-use crate::projectile::Projectile;
+use crate::map::Map;
+use crate::projectile::{Projectile, ProjectileStatus};
 use crate::sprites::Sprites;
 use crate::tower::{EffectType, Tower, TowerType};
 use crate::ui;
@@ -140,14 +140,13 @@ impl Game {
         }
         let dt = real_dt * SPEED_LEVELS[self.speed_index] as f32;
         self.update_spawning(dt);
+        self.map.update_lava_pools(dt);
 
         for enemy in &mut self.enemies {
-            for lava_effect_spot in self.map.lava_effect_spots.clone() {
-                let to_target = enemy.pos - lava_effect_spot;
-                let dist = to_target.length();
-                if dist <= 10.0 && enemy.is_targetable_by(TowerType::Lava) {
-                    enemy.apply_effects(vec![EffectType::Lava]);
-                }
+            if enemy.is_targetable_by(TowerType::Lava)
+                && self.map.lava_pools.iter().any(|pool| pool.contains(enemy.pos))
+            {
+                enemy.apply_effects(vec![EffectType::Lava]);
             }
             enemy.update(dt, &self.map.waypoints);
         }
@@ -171,19 +170,21 @@ impl Game {
 
         let mut i = 0;
         while i < self.projectiles.len() {
-            let hit = self.projectiles[i].update(dt, &self.enemies);
-            if hit {
-                self.projectiles[i].apply_damage(&mut self.enemies);
-                self.projectiles[i].apply_effect(&mut self.enemies);
-                if self.projectiles[i].effects.contains(&EffectType::Lava) {
-                    self.map
-                        .lava_effect_spots
-                        .push(self.projectiles[i].pos.clone());
+            match self.projectiles[i].update(dt, &self.enemies) {
+                ProjectileStatus::Flying => {
+                    i += 1;
+                    continue;
                 }
-                self.projectiles.remove(i);
-            } else {
-                i += 1;
+                ProjectileStatus::Hit(impact_pos) => {
+                    self.projectiles[i].apply_damage(&mut self.enemies);
+                    self.projectiles[i].apply_effect(&mut self.enemies);
+                    if self.projectiles[i].effects.contains(&EffectType::Lava) {
+                        self.map.add_lava_pool(impact_pos);
+                    }
+                }
+                ProjectileStatus::Lost => {}
             }
+            self.projectiles.remove(i);
         }
 
         let mut gold_earned = 0u32;
@@ -208,7 +209,7 @@ impl Game {
         }
 
         if self.wave_active && self.spawn_queue.is_empty() && self.enemies.is_empty() {
-            self.map.lava_effect_spots.clear();
+            self.map.lava_pools.clear();
             self.wave_active = false;
             if self.wave_number >= self.waves.len() as u32 {
                 self.status = GameStatus::Win;
@@ -342,6 +343,7 @@ impl Game {
         self.map.draw(&self.tileset_textures);
         self.map
             .draw_build_spots(&self.occupied, &self.sprites.build_spot);
+        self.map.draw_lava_pools(&self.sprites.lava_pool);
 
         for tower in self.towers.values() {
             let tex = match tower.kind {

@@ -34,12 +34,55 @@ pub const TOP_BAR: f32 = 40.0;
 pub const PANEL_HEIGHT: f32 = 100.0;
 pub const WINDOW_H: f32 = TOP_BAR + PLAY_H + PANEL_HEIGHT;
 pub const TILE: f32 = 64.0;
+/// How long a lava pool stays on the ground, in seconds.
 pub const LAVA_EFFECT_DURATION: f32 = 15.0;
+/// Radius of a lava pool, used both for drawing and for deciding which
+/// enemies are standing in it.
+pub const LAVA_POOL_RADIUS: f32 = 20.0;
+/// Final stretch of a pool's lifetime during which it fades out.
+const LAVA_POOL_FADE_TIME: f32 = 2.0;
+
+/// A patch of lava left on the ground where a Lava tower projectile hit.
+/// Enemies inside it keep getting [`crate::tower::EffectType::Lava`].
+#[derive(Clone, Debug)]
+pub struct LavaPool {
+    pub pos: Vec2,
+    /// Seconds left before the pool disappears.
+    pub remaining: f32,
+}
+
+impl LavaPool {
+    pub fn new(pos: Vec2) -> Self {
+        LavaPool {
+            pos,
+            remaining: LAVA_EFFECT_DURATION,
+        }
+    }
+
+    /// Whether `pos` lies inside the pool.
+    pub fn contains(&self, pos: Vec2) -> bool {
+        (pos - self.pos).length() <= LAVA_POOL_RADIUS
+    }
+
+    pub fn update(&mut self, dt: f32) {
+        self.remaining -= dt;
+    }
+
+    pub fn is_expired(&self) -> bool {
+        self.remaining <= 0.0
+    }
+
+    /// Opacity of the pool, fading out over its last
+    /// [`LAVA_POOL_FADE_TIME`] seconds.
+    fn alpha(&self) -> f32 {
+        (self.remaining / LAVA_POOL_FADE_TIME).clamp(0.0, 1.0)
+    }
+}
 
 pub struct Map {
     pub waypoints: Vec<Vec2>,
     pub build_spots: Vec<Vec2>,
-    pub lava_effect_spots: Vec<Vec2>,
+    pub lava_pools: Vec<LavaPool>,
     /// The `Ground` layer's tile grid, `[row][col]` (or `None` for an
     /// empty cell).
     ground_tiles: Vec<Vec<Option<PaintedTile>>>,
@@ -75,7 +118,7 @@ impl Map {
         Map {
             waypoints: level.waypoints.clone(),
             build_spots: level.build_spots.clone(),
-            lava_effect_spots: vec![],
+            lava_pools: vec![],
             ground_tiles: level.ground_tiles.clone(),
             env_tiles: level.env_tiles.clone(),
             tilesets: level.tilesets.clone(),
@@ -143,6 +186,35 @@ impl Map {
         }
     }
 
+    /// Leave a fresh lava pool on the ground at `pos`.
+    pub fn add_lava_pool(&mut self, pos: Vec2) {
+        self.lava_pools.push(LavaPool::new(pos));
+    }
+
+    /// Age all lava pools by `dt` seconds, removing expired ones.
+    pub fn update_lava_pools(&mut self, dt: f32) {
+        for pool in &mut self.lava_pools {
+            pool.update(dt);
+        }
+        self.lava_pools.retain(|pool| !pool.is_expired());
+    }
+
+    pub fn draw_lava_pools(&self, texture: &Texture2D) {
+        let size = LAVA_POOL_RADIUS * 2.0;
+        for pool in &self.lava_pools {
+            draw_texture_ex(
+                texture,
+                pool.pos.x - LAVA_POOL_RADIUS,
+                pool.pos.y - LAVA_POOL_RADIUS,
+                Color::new(1.0, 1.0, 1.0, pool.alpha()),
+                DrawTextureParams {
+                    dest_size: Some(vec2(size, size)),
+                    ..Default::default()
+                },
+            );
+        }
+    }
+
     /// Index of the nearest unoccupied build spot to `pos`, within
     /// `max_dist`, if any.
     pub fn nearest_free_spot(&self, pos: Vec2, occupied: &[bool], max_dist: f32) -> Option<usize> {
@@ -178,5 +250,26 @@ impl Map {
             }
         }
         best.map(|(i, _)| i)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lava_pool_expires_after_its_duration() {
+        let mut pool = LavaPool::new(vec2(0.0, 0.0));
+        pool.update(LAVA_EFFECT_DURATION - 0.1);
+        assert!(!pool.is_expired());
+        pool.update(0.2);
+        assert!(pool.is_expired());
+    }
+
+    #[test]
+    fn lava_pool_contains_only_positions_within_its_radius() {
+        let pool = LavaPool::new(vec2(100.0, 100.0));
+        assert!(pool.contains(vec2(100.0 + LAVA_POOL_RADIUS, 100.0)));
+        assert!(!pool.contains(vec2(100.0 + LAVA_POOL_RADIUS + 1.0, 100.0)));
     }
 }

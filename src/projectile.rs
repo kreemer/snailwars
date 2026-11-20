@@ -10,6 +10,17 @@ use macroquad::prelude::*;
 const PROJECTILE_SPEED: f32 = 420.0;
 const HIT_DISTANCE: f32 = 10.0;
 
+/// Outcome of moving a projectile for one frame.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum ProjectileStatus {
+    /// Still on its way to the target.
+    Flying,
+    /// Reached the target, which stands at the given position.
+    Hit(Vec2),
+    /// The target died or escaped before impact; the projectile fizzles.
+    Lost,
+}
+
 pub struct Projectile {
     pub pos: Vec2,
     pub target_id: u32,
@@ -40,20 +51,20 @@ impl Projectile {
         }
     }
 
-    /// Move toward the target enemy. Returns true if the projectile hit
-    /// (and should be removed) this frame.
-    pub fn update(&mut self, dt: f32, enemies: &[Enemy]) -> bool {
+    /// Move toward the target enemy. Anything other than
+    /// [`ProjectileStatus::Flying`] means the projectile should be removed.
+    pub fn update(&mut self, dt: f32, enemies: &[Enemy]) -> ProjectileStatus {
         let Some(target) = enemies.iter().find(|e| e.id == self.target_id) else {
-            return true; // target no longer exists
+            return ProjectileStatus::Lost;
         };
         if target.is_dead() || target.reached_base {
-            return true;
+            return ProjectileStatus::Lost;
         }
 
         let to_target = target.pos - self.pos;
         let dist = to_target.length();
         if dist <= HIT_DISTANCE {
-            return true;
+            return ProjectileStatus::Hit(target.pos);
         }
         let step = PROJECTILE_SPEED * dt;
         if step >= dist {
@@ -61,7 +72,7 @@ impl Projectile {
         } else {
             self.pos += to_target / dist * step;
         }
-        false
+        ProjectileStatus::Flying
     }
 
     /// Apply damage to the target, and to any nearby enemies if this
@@ -122,5 +133,38 @@ impl Projectile {
                 ..Default::default()
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::enemy::EnemyType;
+
+    fn lava_shot(target_id: u32) -> Projectile {
+        Projectile::new(
+            Vec2::new(0.0, 0.0),
+            target_id,
+            0.0,
+            0.0,
+            vec![EffectType::Lava],
+            TowerType::Lava,
+        )
+    }
+
+    #[test]
+    fn hitting_the_target_reports_its_position() {
+        let target = Enemy::new(7, EnemyType::Snail, Vec2::new(5.0, 0.0), 1);
+        let mut shot = lava_shot(7);
+        assert_eq!(
+            shot.update(0.016, &[target]),
+            ProjectileStatus::Hit(Vec2::new(5.0, 0.0))
+        );
+    }
+
+    #[test]
+    fn losing_the_target_is_not_a_hit() {
+        let mut shot = lava_shot(7);
+        assert_eq!(shot.update(0.016, &[]), ProjectileStatus::Lost);
     }
 }

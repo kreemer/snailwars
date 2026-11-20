@@ -14,7 +14,8 @@
 //! spot overlay, debuff icons) has no art yet, so it is still built at
 //! startup by rasterizing simple shapes (circles / rounded rectangles)
 //! into an `Image` and uploading it as a `Texture2D`. Debuff icons are
-//! looked for in `assets/effects/{name}.png` first.
+//! looked for in `assets/effects/{name}.png` first, and the lava pool in
+//! `assets/effects/lava_pool.png`.
 
 use macroquad::prelude::*;
 
@@ -23,6 +24,8 @@ use crate::tower::EffectType;
 /// Optional art shown behind the title screen; see
 /// [`Sprites::title_background`].
 const TITLE_BACKGROUND_PATH: &str = "assets/ui/title_background.png";
+/// Optional art for lava pools; see [`Sprites::lava_pool`].
+const LAVA_POOL_PATH: &str = "assets/effects/lava_pool.png";
 
 pub enum Direction {
     TOP,
@@ -55,7 +58,9 @@ pub struct Sprites {
     pub effect_slow: Texture2D,
     pub effect_poison: Texture2D,
     pub effect_lava: Texture2D,
-    /// Enemy level indicator.
+    /// Lava pool left on the ground by Lava tower hits; see
+    /// [`crate::map::LavaPool`].
+    pub lava_pool: Texture2D,
     pub enemy_level: Texture2D,
     /// Full-screen art behind the title screen, loaded from
     /// `assets/ui/title_background.png`. `None` while the art is
@@ -90,6 +95,9 @@ impl Sprites {
             effect_slow: load_effect_texture(EffectType::Slow, &placeholders.effect_slow).await,
             effect_poison: load_effect_texture(EffectType::Poison, &placeholders.effect_poison)
                 .await,
+            lava_pool: try_load_texture(LAVA_POOL_PATH)
+                .await
+                .unwrap_or_else(|| placeholders.lava_pool.clone()),
             title_background: try_load_texture(TITLE_BACKGROUND_PATH).await,
             ..placeholders
         }
@@ -196,6 +204,11 @@ impl Sprites {
                 Color::new(0.9, 0.4, 0.2, 1.0),
                 Color::new(0.4, 0.2, 0.05, 1.0),
             ),
+            lava_pool: glow_texture(
+                64,
+                Color::new(1.0, 0.85, 0.2, 0.95),
+                Color::new(0.85, 0.15, 0.0, 0.0),
+            ),
             enemy_level: circle_texture(
                 256,
                 Color::new(0.35, 0.7, 1.0, 1.0),
@@ -253,6 +266,34 @@ fn circle_texture(size: u16, fill: Color, outline: Color) -> Texture2D {
             if dist <= radius {
                 let color = if dist >= radius - 2.0 { outline } else { fill };
                 image.set_pixel(x as u32, y as u32, color);
+            }
+        }
+    }
+    Texture2D::from_image(&image)
+}
+
+/// Soft round blob blending from `center` in the middle to `edge` at the
+/// rim, used for glowing ground effects like lava pools.
+fn glow_texture(size: u16, center: Color, edge: Color) -> Texture2D {
+    let mut image = Image::gen_image_color(size, size, Color::new(0.0, 0.0, 0.0, 0.0));
+    let mid = size as f32 / 2.0;
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 + 0.5 - mid;
+            let dy = y as f32 + 0.5 - mid;
+            let t = (dx * dx + dy * dy).sqrt() / mid;
+            if t <= 1.0 {
+                let lerp = |a: f32, b: f32| a + (b - a) * t;
+                image.set_pixel(
+                    x as u32,
+                    y as u32,
+                    Color::new(
+                        lerp(center.r, edge.r),
+                        lerp(center.g, edge.g),
+                        lerp(center.b, edge.b),
+                        lerp(center.a, edge.a),
+                    ),
+                );
             }
         }
     }
