@@ -9,6 +9,7 @@ mod catalog;
 mod enemy;
 mod fx;
 mod game;
+mod input;
 mod level;
 mod map;
 mod progress;

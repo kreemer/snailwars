@@ -46,6 +46,13 @@ pub fn draw_hud(gold: u32, lives: u32, wave_number: u32, total_waves: u32) {
     );
 }
 
+/// Draw the virtual cursor used for gamepad navigation.
+pub fn draw_gamepad_cursor(pos: Vec2) {
+    draw_circle(pos.x, pos.y, 9.0, Color::new(0.05, 0.05, 0.05, 0.8));
+    draw_circle_lines(pos.x, pos.y, 8.0, 2.0, WHITE);
+    draw_circle(pos.x, pos.y, 2.5, Color::new(0.7, 1.0, 0.55, 1.0));
+}
+
 /// Rects for each tower button, in the same order as `TOWER_TYPES`.
 pub fn tower_button_rects() -> Vec<(TowerType, Rect)> {
     let panel_y = WINDOW_H - PANEL_HEIGHT;

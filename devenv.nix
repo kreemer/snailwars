@@ -6,10 +6,14 @@
   ...
 }:
 {
-  packages = [ pkgs.alsa-lib ];
+  packages = [
+    pkgs.alsa-lib
+    pkgs.udev
+  ];
 
   env.LD_LIBRARY_PATH = builtins.concatStringsSep ":" [
     "${pkgs.alsa-lib}/lib"
+    "${pkgs.udev}/lib"
     "${pkgs.xorg.libX11}/lib"
     "${pkgs.xorg.libXi}/lib"
     "${pkgs.libGL}/lib"

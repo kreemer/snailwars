@@ -138,6 +138,22 @@ impl Viewport {
         self.rebuild_world_camera();
     }
 
+    /// Pan with the controller's right stick and zoom one step per
+    /// trigger press, centered on the current view.
+    pub fn handle_controller_input(&mut self, dt: f32, pan: Vec2, zoom_steps: f32) {
+        if zoom_steps != 0.0 {
+            let center = self.scroll + self.visible_play_size() / 2.0;
+            self.zoom = (self.zoom + zoom_steps * ZOOM_STEP).clamp(MIN_ZOOM, MAX_ZOOM);
+            self.scroll = center - self.visible_play_size() / 2.0;
+            self.rebuild_world_camera();
+        }
+
+        if pan != Vec2::ZERO && self.max_scroll() != Vec2::ZERO {
+            self.scroll += pan * SCROLL_SPEED * dt;
+            self.rebuild_world_camera();
+        }
+    }
+
     /// Size (in world pixels) of the play area currently visible at the
     /// current zoom level - larger than `(SCREEN_W, PLAY_H)` when zoomed
     /// out, smaller when zoomed in.
@@ -272,4 +288,3 @@ fn draw_layer(target: &RenderTarget, dest_pos: Vec2, dest_size: Vec2) {
         },
     );
 }
-

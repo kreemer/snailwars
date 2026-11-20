@@ -15,6 +15,7 @@
 use crate::audio::{AudioEvent, AudioManager};
 use crate::catalog::LevelCatalog;
 use crate::game::{Game, GameStatus};
+use crate::input::{Controls, Input};
 use crate::level::Level;
 use crate::progress::Progress;
 use crate::sprites::Sprites;
@@ -56,6 +57,7 @@ pub struct App {
     progress: Progress,
     sprites: Sprites,
     audio: AudioManager,
+    input: Input,
     tileset_textures: HashMap<PathBuf, Texture2D>,
     viewport: Viewport,
     screen: Screen,
@@ -68,6 +70,7 @@ impl App {
             progress: Progress::load(),
             sprites: Sprites::load().await,
             audio: AudioManager::new().await,
+            input: Input::new(),
             tileset_textures: HashMap::new(),
             viewport: Viewport::new(),
             screen: Screen::Title,
@@ -78,16 +81,18 @@ impl App {
     pub async fn run(&mut self) {
         loop {
             let dt = get_frame_time();
-            let screen_mouse = Vec2::from(mouse_position());
-            let ui_mouse = self.viewport.to_ui_logical(screen_mouse);
-            let clicked = is_mouse_button_pressed(MouseButton::Left);
+            let controls = self.input.update(dt);
+            let ui_mouse = self.viewport.to_ui_logical(controls.screen_mouse);
 
             let transition = match self.screen {
-                Screen::Title => self.frame_title(ui_mouse, clicked),
-                Screen::MapSelect => self.frame_map_select(ui_mouse, clicked),
-                Screen::Playing(_) => self.frame_playing(dt, screen_mouse, ui_mouse, clicked),
+                Screen::Title => self.frame_title(ui_mouse, controls.clicked),
+                Screen::MapSelect => self.frame_map_select(ui_mouse, &controls),
+                Screen::Playing(_) => self.frame_playing(dt, ui_mouse, &controls),
             };
 
+            if let Some(cursor) = controls.gamepad_cursor {
+                ui::draw_gamepad_cursor(self.viewport.to_ui_logical(cursor));
+            }
             self.viewport.present();
             next_frame().await;
 
@@ -125,7 +130,7 @@ impl App {
         Transition::Stay
     }
 
-    fn frame_map_select(&mut self, ui_mouse: Vec2, clicked: bool) -> Transition {
+    fn frame_map_select(&mut self, ui_mouse: Vec2, controls: &Controls) -> Transition {
         self.begin_menu_frame();
 
         let items: Vec<MapSelectItem<'_>> = self
@@ -141,7 +146,11 @@ impl App {
             .collect();
         ui::draw_map_select(&items, ui_mouse);
 
-        if !clicked {
+        if controls.cancelled {
+            self.audio.play(AudioEvent::UiClick);
+            return Transition::Title;
+        }
+        if !controls.clicked {
             return Transition::Stay;
         }
         if ui::map_select_back_rect().contains(ui_mouse) {
@@ -160,13 +169,7 @@ impl App {
         Transition::Stay
     }
 
-    fn frame_playing(
-        &mut self,
-        dt: f32,
-        screen_mouse: Vec2,
-        ui_mouse: Vec2,
-        clicked: bool,
-    ) -> Transition {
+    fn frame_playing(&mut self, dt: f32, ui_mouse: Vec2, controls: &Controls) -> Transition {
         let Screen::Playing(session) = &mut self.screen else {
             return Transition::Stay;
         };
@@ -177,9 +180,17 @@ impl App {
         if running {
             self.viewport.handle_zoom_input();
             self.viewport.handle_scroll_input(dt);
+            self.viewport
+                .handle_controller_input(dt, controls.camera_pan, controls.zoom_steps);
         }
-        let world_mouse = self.viewport.to_world_logical(screen_mouse);
-        for event in game.update(dt, ui_mouse, world_mouse) {
+        let world_mouse = self.viewport.to_world_logical(controls.screen_mouse);
+        for event in game.update(
+            dt,
+            ui_mouse,
+            world_mouse,
+            controls.clicked,
+            controls.speed_pressed,
+        ) {
             self.audio.play(event);
         }
 
@@ -189,7 +200,7 @@ impl App {
         game.draw_ui();
 
         if *game.status() == GameStatus::Playing {
-            return if is_key_pressed(KeyCode::Escape) {
+            return if is_key_pressed(KeyCode::Escape) || controls.cancelled {
                 self.audio.stop_music();
                 Transition::Title
             } else {
@@ -228,10 +239,13 @@ impl App {
         };
         ui::draw_end_overlay(title, subtitle, &actions, ui_mouse);
 
-        if is_key_pressed(KeyCode::R) {
+        if is_key_pressed(KeyCode::R) || controls.restart_pressed {
             return self.restart_level();
         }
-        if !clicked {
+        if controls.cancelled {
+            return Transition::Title;
+        }
+        if !controls.clicked {
             return Transition::Stay;
         }
         for (action, rect) in ui::end_overlay_buttons(&actions) {

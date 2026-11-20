@@ -11,8 +11,9 @@ along the way to stop them before they reach your base.
 devenv shell -- cargo run
 ```
 
-The project `devenv` includes ALSA, required by Macroquad's audio backend on
-Linux. If running Cargo outside `devenv`, install the ALSA development library.
+The project `devenv` includes ALSA, required by Macroquad's audio backend, and
+libudev, required by gamepad support on Linux. If running Cargo outside
+`devenv`, install the ALSA and libudev development libraries.
 To open the editor with the same environment:
 
 ```sh
@@ -46,6 +47,14 @@ Delete that file to reset all unlocks.
 - After winning, choose **Next Level** (if there is one) or **Back to
   Title**; after losing, choose **Restart** or **Back to Title**.
   **R** also restarts the current level.
+
+### Gamepad
+
+The game supports gamepads such as the Steam Deck's built-in controls.
+The left stick moves a virtual cursor and **A** activates buttons and map
+actions. **B** goes back or leaves a level, the right stick pans the map,
+and **L2/R2** zoom out/in. **Y** cycles game speed; **X** restarts from a
+win/loss screen. Mouse and keyboard controls remain available.
 
 ## Towers
 

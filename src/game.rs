@@ -139,14 +139,21 @@ impl Game {
     /// [`crate::viewport::Viewport::to_ui_logical`] and
     /// [`crate::viewport::Viewport::to_world_logical`]. This module
     /// never needs to know about the real window size/zoom itself.
-    pub fn update(&mut self, real_dt: f32, ui_mouse: Vec2, world_mouse: Vec2) -> Vec<AudioEvent> {
+    pub fn update(
+        &mut self,
+        real_dt: f32,
+        ui_mouse: Vec2,
+        world_mouse: Vec2,
+        clicked: bool,
+        speed_pressed: bool,
+    ) -> Vec<AudioEvent> {
         let mut audio_events = Vec::new();
         if self.status != GameStatus::Playing {
             return audio_events;
         }
 
-        self.handle_input(ui_mouse, world_mouse, &mut audio_events);
-        if is_key_pressed(KeyCode::Tab) {
+        self.handle_input(ui_mouse, world_mouse, clicked, &mut audio_events);
+        if is_key_pressed(KeyCode::Tab) || speed_pressed {
             self.speed_index = (self.speed_index + 1) % SPEED_LEVELS.len();
         }
         let dt = real_dt * SPEED_LEVELS[self.speed_index] as f32;
@@ -283,9 +290,10 @@ impl Game {
         &mut self,
         ui_mouse: Vec2,
         world_mouse: Vec2,
+        clicked: bool,
         audio_events: &mut Vec<AudioEvent>,
     ) {
-        if !is_mouse_button_pressed(MouseButton::Left) {
+        if !clicked {
             return;
         }
 
