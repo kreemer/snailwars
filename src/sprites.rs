@@ -42,6 +42,7 @@ pub struct Sprites {
     pub armored_slug: Texture2D,
     pub armored_big_snail: Texture2D,
     pub tower_pebble: Texture2D,
+    pub tower_laser: Texture2D,
     pub tower_pepper: Texture2D,
     pub tower_salt: Texture2D,
     pub tower_death: Texture2D,
@@ -144,6 +145,11 @@ impl Sprites {
                 32,
                 Color::new(0.55, 0.55, 0.6, 1.0),
                 Color::new(0.2, 0.2, 0.25, 1.0),
+            ),
+            tower_laser: rounded_rect_texture(
+                32,
+                Color::new(0.65, 0.25, 0.9, 1.0),
+                Color::new(0.3, 0.1, 0.45, 1.0),
             ),
             tower_pepper: rounded_rect_texture(
                 32,

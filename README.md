@@ -48,6 +48,7 @@ Delete that file to reset all unlocks.
 | Tower           | Cost | Damage | Range | Fire rate | Notes           |
 |-----------------|------|--------|-------|-----------|-----------------|
 | Pebble Turret   | 50g  | 12     | 120   | 1.0/s     | Balanced; can hit flying enemies |
+| Laser Tower     | 10g  | 100    | 120   | 1.0/s     | High damage; can hit flying enemies |
 | Pepper Sprayer  | 75g  | 3      | 100   | 5.0/s     | Fast, applies Poison |
 | Salt Cannon     | 150g | 30     | 150   | 0.6/s     | Splash damage, applies Slow |
 | Kost des Todes  | 300g | 50     | 200   | 0.5/s     | Heavy splash; can hit flying enemies |

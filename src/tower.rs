@@ -7,6 +7,7 @@ use serde::Deserialize;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TowerType {
     Pebble,
+    Laser,
     Pepper,
     Salt,
     CostDesTodes,
@@ -59,6 +60,7 @@ impl TowerType {
     pub fn cost(self) -> u32 {
         match self {
             TowerType::Pebble => 50,
+            TowerType::Laser => 10,
             TowerType::Pepper => 75,
             TowerType::Salt => 150,
             TowerType::CostDesTodes => 300,
@@ -69,6 +71,7 @@ impl TowerType {
     pub fn range(self) -> f32 {
         match self {
             TowerType::Pebble => 120.0,
+            TowerType::Laser => 120.0,
             TowerType::Pepper => 100.0,
             TowerType::Salt => 150.0,
             TowerType::CostDesTodes => 200.0,
@@ -79,6 +82,7 @@ impl TowerType {
     pub fn damage(self) -> f32 {
         match self {
             TowerType::Pebble => 12.0,
+            TowerType::Laser => 100.0,
             TowerType::Pepper => 3.0,
             TowerType::Salt => 30.0,
             TowerType::CostDesTodes => 50.0,
@@ -90,6 +94,7 @@ impl TowerType {
     pub fn fire_rate(self) -> f32 {
         match self {
             TowerType::Pebble => 1.0,
+            TowerType::Laser => 1.0,
             TowerType::Pepper => 5.0,
             TowerType::Salt => 0.6,
             TowerType::CostDesTodes => 0.5,
@@ -109,6 +114,7 @@ impl TowerType {
     pub fn name(self) -> &'static str {
         match self {
             TowerType::Pebble => "Pebble Turret",
+            TowerType::Laser => "Laser Tower",
             TowerType::Pepper => "Pepper Sprayer",
             TowerType::Salt => "Salt Cannon",
             TowerType::CostDesTodes => "Kost des Todes",
@@ -129,7 +135,10 @@ impl TowerType {
     pub fn can_target(self, attribute: EnemyAttribute) -> bool {
         match attribute {
             EnemyAttribute::Flying => {
-                matches!(self, TowerType::Pebble | TowerType::CostDesTodes)
+                matches!(
+                    self,
+                    TowerType::Pebble | TowerType::Laser | TowerType::CostDesTodes
+                )
             }
         }
     }

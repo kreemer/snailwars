@@ -10,8 +10,9 @@ use crate::map::{PANEL_HEIGHT, SCREEN_W, TOP_BAR, WINDOW_H};
 use crate::tower::TowerType;
 use macroquad::prelude::*;
 
-const TOWER_TYPES: [TowerType; 5] = [
+const TOWER_TYPES: [TowerType; 6] = [
     TowerType::Pebble,
+    TowerType::Laser,
     TowerType::Pepper,
     TowerType::Salt,
     TowerType::CostDesTodes,
@@ -112,6 +113,7 @@ pub fn draw_panel(
 
         let tex = match kind {
             TowerType::Pebble => &sprites.tower_pebble,
+            TowerType::Laser => &sprites.tower_laser,
             TowerType::Pepper => &sprites.tower_pepper,
             TowerType::Salt => &sprites.tower_salt,
             TowerType::CostDesTodes => &sprites.tower_death,

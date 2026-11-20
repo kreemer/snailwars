@@ -346,6 +346,7 @@ impl Game {
         for tower in self.towers.values() {
             let tex = match tower.kind {
                 TowerType::Pebble => &self.sprites.tower_pebble,
+                TowerType::Laser => &self.sprites.tower_laser,
                 TowerType::Pepper => &self.sprites.tower_pepper,
                 TowerType::Salt => &self.sprites.tower_salt,
                 TowerType::CostDesTodes => &self.sprites.tower_death,
