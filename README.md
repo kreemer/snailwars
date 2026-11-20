@@ -120,6 +120,8 @@ exist, what they are called, and the order they unlock in is defined by
         (id: "level1", name: "The Garden Path"),
         (id: "level2", name: "Greenhouse Alley"),
         (id: "level3", name: "The Compost Maze"),
+        (id: "level4", name: "The Thorny Trellis"),
+        (id: "level5", name: "The Root Cellar"),
     ],
 )
 ```

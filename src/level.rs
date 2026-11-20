@@ -471,4 +471,47 @@ mod tests {
             Err(PathError::MultipleStart(_))
         ));
     }
+
+    #[test]
+    fn new_levels_load_with_progressively_harder_waves() {
+        let catalog = crate::catalog::LevelCatalog::load();
+        assert_eq!(catalog.get(3).unwrap().id, "level4");
+        assert_eq!(catalog.get(4).unwrap().id, "level5");
+
+        for (id, first_level, later_level) in [("level4", 2, 3), ("level5", 4, 5)] {
+            let level = Level::load(id);
+            assert_eq!(level.waves.len(), 12);
+            assert!(level.waypoints.len() > 40);
+            assert!(!level.build_spots.is_empty());
+
+            for (wave_index, wave) in level.waves.iter().enumerate() {
+                let expected_level = if wave_index < 6 {
+                    first_level
+                } else {
+                    later_level
+                };
+                assert!(
+                    wave.spawns
+                        .iter()
+                        .all(|spawn| spawn.level == expected_level)
+                );
+                if let Some(previous) = wave_index.checked_sub(1) {
+                    assert!(
+                        level.waves[previous].spawns.len() < wave.spawns.len(),
+                        "wave counts should rise throughout {id}"
+                    );
+                }
+            }
+        }
+
+        let level4 = Level::load("level4");
+        let level5 = Level::load("level5");
+        assert!(
+            level5.waves[0].spawns[1].delay_after_previous
+                < level4.waves[0].spawns[1].delay_after_previous
+        );
+        assert!(
+            level5.waves.last().unwrap().spawns.len() > level4.waves.last().unwrap().spawns.len()
+        );
+    }
 }
