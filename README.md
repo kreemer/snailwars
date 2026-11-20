@@ -20,6 +20,20 @@ To open the editor with the same environment:
 devenv shell -- hx .
 ```
 
+### Linux release
+
+The [Linux build workflow](.github/workflows/linux.yml) builds an
+x86_64 Linux archive containing the game and its assets. Download the
+`snailwars-linux-x86_64` artifact from a successful run on the
+[Actions page](../../actions/workflows/linux.yml) (sign-in required), or
+download the `.tar.gz` directly from [Releases](../../releases) after a `v*`
+tag is pushed. The workflow also runs manually via **Run workflow**.
+
+Extract the `.tar.gz` (if downloaded from Actions, unzip the artifact first)
+and run `run.sh` from the extracted `snailwars` directory. Keep `assets/`
+beside the binary; the launcher sets the working directory so maps and
+saved progress work when launched from elsewhere.
+
 ## Screens
 
 The game opens on a **title screen** (background art is loaded from
