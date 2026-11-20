@@ -122,6 +122,25 @@ impl TowerType {
         }
     }
 
+    /// Whether this tower hits instantly with a beam instead of firing a
+    /// projectile (see [`crate::fx::LaserBeam`]).
+    pub fn fires_beam(self) -> bool {
+        matches!(self, TowerType::Laser)
+    }
+
+    /// Base name of this tower's projectile art, used for the asset path
+    /// `assets/projectiles/{name}.png`.
+    pub fn projectile_name(self) -> &'static str {
+        match self {
+            TowerType::Pebble => "pebble",
+            TowerType::Laser => "laser",
+            TowerType::Pepper => "pepper",
+            TowerType::Salt => "salt",
+            TowerType::CostDesTodes => "death",
+            TowerType::Lava => "lava",
+        }
+    }
+
     pub fn projectiles_effect(self) -> Vec<EffectType> {
         match self {
             TowerType::Salt => vec![EffectType::Slow],

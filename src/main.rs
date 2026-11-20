@@ -6,6 +6,7 @@
 mod app;
 mod catalog;
 mod enemy;
+mod fx;
 mod game;
 mod level;
 mod map;

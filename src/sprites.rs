@@ -10,16 +10,18 @@
 //! missing. The title screen background is looked for in
 //! `assets/ui/title_background.png` and is simply absent (the title
 //! screen paints a plain backdrop) while that art is missing.
-//! Everything else (towers, projectile, build
+//! Everything else (towers, projectiles, build
 //! spot overlay, debuff icons) has no art yet, so it is still built at
-//! startup by rasterizing simple shapes (circles / rounded rectangles)
-//! into an `Image` and uploading it as a `Texture2D`. Debuff icons are
-//! looked for in `assets/effects/{name}.png` first, and the lava pool in
-//! `assets/effects/lava_pool.png`.
+//! startup by rasterizing simple shapes (circles / rounded rectangles /
+//! rocks / crystals / glowing orbs) into an `Image` and uploading it as a
+//! `Texture2D`. Debuff icons are looked for in
+//! `assets/effects/{name}.png` first, the lava pool in
+//! `assets/effects/lava_pool.png`, and projectiles in
+//! `assets/projectiles/{name}.png`.
 
 use macroquad::prelude::*;
 
-use crate::tower::EffectType;
+use crate::tower::{EffectType, TowerType};
 
 /// Optional art shown behind the title screen; see
 /// [`Sprites::title_background`].
@@ -50,7 +52,15 @@ pub struct Sprites {
     pub tower_salt: Texture2D,
     pub tower_death: Texture2D,
     pub tower_lava: Texture2D,
-    pub projectile: Texture2D,
+    /// One projectile per tower that fires them (the laser fires a beam
+    /// instead; see [`crate::fx::LaserBeam`]). Looked for in
+    /// `assets/projectiles/{name}.png` first; see
+    /// [`crate::tower::TowerType::projectile_name`].
+    pub projectile_pebble: Texture2D,
+    pub projectile_pepper: Texture2D,
+    pub projectile_salt: Texture2D,
+    pub projectile_death: Texture2D,
+    pub projectile_lava: Texture2D,
     /// Overlay marker drawn over unoccupied build spots; the ground art
     /// itself comes from the level's Tiled tileset (see `crate::map`).
     pub build_spot: Texture2D,
@@ -99,7 +109,45 @@ impl Sprites {
                 .await
                 .unwrap_or_else(|| placeholders.lava_pool.clone()),
             title_background: try_load_texture(TITLE_BACKGROUND_PATH).await,
+            projectile_pebble: load_projectile_texture(
+                TowerType::Pebble,
+                &placeholders.projectile_pebble,
+            )
+            .await,
+            projectile_pepper: load_projectile_texture(
+                TowerType::Pepper,
+                &placeholders.projectile_pepper,
+            )
+            .await,
+            projectile_salt: load_projectile_texture(
+                TowerType::Salt,
+                &placeholders.projectile_salt,
+            )
+            .await,
+            projectile_death: load_projectile_texture(
+                TowerType::CostDesTodes,
+                &placeholders.projectile_death,
+            )
+            .await,
+            projectile_lava: load_projectile_texture(
+                TowerType::Lava,
+                &placeholders.projectile_lava,
+            )
+            .await,
             ..placeholders
+        }
+    }
+
+    /// Projectile fired by towers of `kind`; `None` for the laser, which
+    /// fires a beam instead.
+    pub fn projectile_texture(&self, kind: TowerType) -> Option<&Texture2D> {
+        match kind {
+            TowerType::Pebble => Some(&self.projectile_pebble),
+            TowerType::Pepper => Some(&self.projectile_pepper),
+            TowerType::Salt => Some(&self.projectile_salt),
+            TowerType::CostDesTodes => Some(&self.projectile_death),
+            TowerType::Lava => Some(&self.projectile_lava),
+            TowerType::Laser => None,
         }
     }
 
@@ -179,10 +227,30 @@ impl Sprites {
                 Color::new(1.0, 1.0, 0.0, 1.0),
                 Color::new(0.5, 0.25, 0.5, 1.0),
             ),
-            projectile: circle_texture(
-                8,
-                Color::new(1.0, 0.95, 0.4, 1.0),
-                Color::new(0.6, 0.55, 0.1, 1.0),
+            projectile_pebble: rock_texture(
+                24,
+                Color::new(0.62, 0.6, 0.56, 1.0),
+                Color::new(0.2, 0.19, 0.17, 1.0),
+            ),
+            projectile_pepper: orb_texture(
+                16,
+                Color::new(0.95, 0.15, 0.05, 1.0),
+                Color::new(1.0, 0.5, 0.1, 0.8),
+            ),
+            projectile_salt: diamond_texture(
+                24,
+                Color::new(0.97, 0.98, 1.0, 1.0),
+                Color::new(0.35, 0.55, 0.8, 1.0),
+            ),
+            projectile_death: orb_texture(
+                32,
+                Color::new(0.05, 0.35, 0.05, 1.0),
+                Color::new(0.3, 1.0, 0.2, 0.9),
+            ),
+            projectile_lava: orb_texture(
+                32,
+                Color::new(1.0, 0.55, 0.05, 1.0),
+                Color::new(1.0, 0.2, 0.0, 0.9),
             ),
             build_spot: rounded_rect_texture(
                 48,
@@ -244,6 +312,15 @@ async fn load_effect_texture(effect: EffectType, placeholder: &Texture2D) -> Tex
         .unwrap_or_else(|| placeholder.clone())
 }
 
+/// Loads the projectile for `kind` from `assets/projectiles/{name}.png`,
+/// falling back to the generated placeholder while the art is missing.
+async fn load_projectile_texture(kind: TowerType, placeholder: &Texture2D) -> Texture2D {
+    let path = format!("assets/projectiles/{}.png", kind.projectile_name());
+    try_load_texture(&path)
+        .await
+        .unwrap_or_else(|| placeholder.clone())
+}
+
 fn enemy_texture_path(name: &str) -> String {
     format!("assets/enemy/{name}.png")
 }
@@ -295,6 +372,95 @@ fn glow_texture(size: u16, center: Color, edge: Color) -> Texture2D {
                     ),
                 );
             }
+        }
+    }
+    Texture2D::from_image(&image)
+}
+
+/// Lumpy stone: a circle with a wobbly radius, outlined, with a light
+/// highlight in the upper-left so spinning is visible.
+fn rock_texture(size: u16, fill: Color, outline: Color) -> Texture2D {
+    let mut image = Image::gen_image_color(size, size, Color::new(0.0, 0.0, 0.0, 0.0));
+    let mid = size as f32 / 2.0;
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 + 0.5 - mid;
+            let dy = y as f32 + 0.5 - mid;
+            let dist = (dx * dx + dy * dy).sqrt();
+            let angle = dy.atan2(dx);
+            let radius =
+                (mid - 1.0) * (0.82 + 0.1 * (3.0 * angle).sin() + 0.06 * (5.0 * angle).cos());
+            if dist > radius {
+                continue;
+            }
+            let color = if dist >= radius - 2.0 {
+                outline
+            } else if (dx + mid * 0.3).powi(2) + (dy + mid * 0.3).powi(2) < (mid * 0.25).powi(2) {
+                Color::new(0.88, 0.87, 0.84, 1.0)
+            } else {
+                fill
+            };
+            image.set_pixel(x as u32, y as u32, color);
+        }
+    }
+    Texture2D::from_image(&image)
+}
+
+/// Crystal chunk: an outlined diamond with a bright facet.
+fn diamond_texture(size: u16, fill: Color, outline: Color) -> Texture2D {
+    let mut image = Image::gen_image_color(size, size, Color::new(0.0, 0.0, 0.0, 0.0));
+    let mid = size as f32 / 2.0;
+    let radius = mid - 1.0;
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 + 0.5 - mid;
+            let dy = y as f32 + 0.5 - mid;
+            let d = dx.abs() + dy.abs();
+            if d > radius {
+                continue;
+            }
+            let color = if d >= radius - 2.5 {
+                outline
+            } else if dx < 0.0 && dy < 0.0 {
+                WHITE
+            } else {
+                fill
+            };
+            image.set_pixel(x as u32, y as u32, color);
+        }
+    }
+    Texture2D::from_image(&image)
+}
+
+/// Glowing ball: a solid `core` with a bright rim, surrounded by a
+/// `halo` fading out to transparent.
+fn orb_texture(size: u16, core: Color, halo: Color) -> Texture2D {
+    let mut image = Image::gen_image_color(size, size, Color::new(0.0, 0.0, 0.0, 0.0));
+    let mid = size as f32 / 2.0;
+    let core_t = 0.55;
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 + 0.5 - mid;
+            let dy = y as f32 + 0.5 - mid;
+            let t = (dx * dx + dy * dy).sqrt() / mid;
+            if t > 1.0 {
+                continue;
+            }
+            let color = if t <= core_t {
+                // Lighter toward the middle, blending into the halo at the rim.
+                let s = t / core_t;
+                let mix = |c: f32, h: f32| c + (h - c) * s * s;
+                Color::new(
+                    mix(core.r, halo.r),
+                    mix(core.g, halo.g),
+                    mix(core.b, halo.b),
+                    1.0,
+                )
+            } else {
+                let fade = 1.0 - (t - core_t) / (1.0 - core_t);
+                Color::new(halo.r, halo.g, halo.b, halo.a * fade * fade)
+            };
+            image.set_pixel(x as u32, y as u32, color);
         }
     }
     Texture2D::from_image(&image)

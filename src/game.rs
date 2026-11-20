@@ -2,9 +2,10 @@
 //! loop that ties enemies, towers, and projectiles together.
 
 use crate::enemy::{Enemy, EnemyType};
+use crate::fx::{Impact, LaserBeam};
 use crate::level::Level;
 use crate::map::Map;
-use crate::projectile::{Projectile, ProjectileStatus};
+use crate::projectile::{Projectile, ProjectileLook, ProjectileStatus, Shot};
 use crate::sprites::Sprites;
 use crate::tower::{EffectType, Tower, TowerType};
 use crate::ui;
@@ -42,6 +43,8 @@ pub struct Game {
     enemies: Vec<Enemy>,
     towers: HashMap<usize, Tower>,
     projectiles: Vec<Projectile>,
+    beams: Vec<LaserBeam>,
+    impacts: Vec<Impact>,
     occupied: Vec<bool>,
 
     gold: u32,
@@ -79,6 +82,8 @@ impl Game {
             enemies: Vec::new(),
             towers: HashMap::new(),
             projectiles: Vec::new(),
+            beams: Vec::new(),
+            impacts: Vec::new(),
             occupied,
             gold: STARTING_GOLD,
             lives: STARTING_LIVES,
@@ -144,7 +149,11 @@ impl Game {
 
         for enemy in &mut self.enemies {
             if enemy.is_targetable_by(TowerType::Lava)
-                && self.map.lava_pools.iter().any(|pool| pool.contains(enemy.pos))
+                && self
+                    .map
+                    .lava_pools
+                    .iter()
+                    .any(|pool| pool.contains(enemy.pos))
             {
                 enemy.apply_effects(vec![EffectType::Lava]);
             }
@@ -155,14 +164,18 @@ impl Game {
             tower.update_cooldown(dt);
             if tower.can_fire() {
                 if let Some(target_id) = tower.find_target(&self.enemies) {
-                    self.projectiles.push(Projectile::new(
-                        tower.pos,
-                        target_id,
-                        tower.kind.damage(),
-                        tower.kind.splash_radius(),
-                        tower.kind.projectiles_effect(),
-                        tower.kind,
-                    ));
+                    let shot = Shot::from_tower(tower.kind, target_id);
+                    if tower.kind.fires_beam() {
+                        fire_beam(
+                            tower.pos,
+                            &shot,
+                            &mut self.enemies,
+                            &mut self.beams,
+                            &mut self.impacts,
+                        );
+                    } else {
+                        self.projectiles.push(Projectile::new(tower.pos, shot));
+                    }
                     tower.fire();
                 }
             }
@@ -176,16 +189,27 @@ impl Game {
                     continue;
                 }
                 ProjectileStatus::Hit(impact_pos) => {
-                    self.projectiles[i].apply_damage(&mut self.enemies);
-                    self.projectiles[i].apply_effect(&mut self.enemies);
-                    if self.projectiles[i].effects.contains(&EffectType::Lava) {
+                    let projectile = &self.projectiles[i];
+                    projectile.shot.apply(&mut self.enemies);
+                    if projectile.shot.effects.contains(&EffectType::Lava) {
                         self.map.add_lava_pool(impact_pos);
                     }
+                    self.impacts
+                        .push(impact_for(impact_pos, projectile.look(), &projectile.shot));
                 }
                 ProjectileStatus::Lost => {}
             }
             self.projectiles.remove(i);
         }
+
+        for beam in &mut self.beams {
+            beam.update(dt);
+        }
+        self.beams.retain(|beam| !beam.is_expired());
+        for impact in &mut self.impacts {
+            impact.update(dt);
+        }
+        self.impacts.retain(|impact| !impact.is_expired());
 
         let mut gold_earned = 0u32;
         let mut lives_lost = 0u32;
@@ -370,8 +394,16 @@ impl Game {
             enemy.draw(tex, &self.sprites);
         }
 
+        for beam in &self.beams {
+            beam.draw();
+        }
         for projectile in &self.projectiles {
-            projectile.draw(&self.sprites.projectile);
+            if let Some(tex) = self.sprites.projectile_texture(projectile.shot.tower_kind) {
+                projectile.draw(tex);
+            }
+        }
+        for impact in &self.impacts {
+            impact.draw();
         }
 
         // Range preview for the currently selected tower type, following
@@ -412,5 +444,60 @@ impl Game {
             self.wave_active,
             SPEED_LEVELS[self.speed_index],
         );
+    }
+}
+
+/// Instantly apply a beam tower's `shot` and leave a fading laser beam
+/// from `from` to where the target stood.
+fn fire_beam(
+    from: Vec2,
+    shot: &Shot,
+    enemies: &mut [Enemy],
+    beams: &mut Vec<LaserBeam>,
+    impacts: &mut Vec<Impact>,
+) {
+    let Some(target_pos) = enemies
+        .iter()
+        .find(|e| e.id == shot.target_id)
+        .map(|e| e.pos)
+    else {
+        return;
+    };
+    shot.apply(enemies);
+    beams.push(LaserBeam::new(from, target_pos));
+    impacts.push(impact_for(
+        target_pos,
+        ProjectileLook::for_tower(shot.tower_kind),
+        shot,
+    ));
+}
+
+/// Impact puff for a hit: as large as the splash radius, or a small
+/// burst for single-target shots.
+fn impact_for(pos: Vec2, look: ProjectileLook, shot: &Shot) -> Impact {
+    let radius = if shot.splash_radius > 0.0 {
+        shot.splash_radius
+    } else {
+        look.size.max(12.0)
+    };
+    Impact::new(pos, look.impact_color, radius)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn laser_hits_instantly_and_leaves_a_beam() {
+        let mut enemies = vec![Enemy::new(3, EnemyType::Snail, Vec2::new(50.0, 0.0), 1)];
+        let hp_before = enemies[0].hp;
+        let (mut beams, mut impacts) = (Vec::new(), Vec::new());
+        let shot = Shot::from_tower(TowerType::Laser, 3);
+
+        fire_beam(Vec2::ZERO, &shot, &mut enemies, &mut beams, &mut impacts);
+
+        assert!(enemies[0].hp < hp_before);
+        assert_eq!(beams.len(), 1);
+        assert_eq!(beams[0].to, Vec2::new(50.0, 0.0));
     }
 }
