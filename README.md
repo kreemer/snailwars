@@ -8,11 +8,12 @@ along the way to stop them before they reach your base.
 ## Running
 
 ```sh
-cargo run
+devenv shell -- cargo run
 ```
 
-If you use `devenv`, run tools through it so editor/LSP binaries resolve from
-the same environment:
+The project `devenv` includes ALSA, required by Macroquad's audio backend on
+Linux. If running Cargo outside `devenv`, install the ALSA development library.
+To open the editor with the same environment:
 
 ```sh
 devenv shell -- hx .

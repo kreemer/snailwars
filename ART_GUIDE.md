@@ -102,3 +102,24 @@ Both maps use the shared `assets/tilesets/tiles.png` for gameplay cells and
 `assets/tilesets/Serene_Village_32x32.png` for visual tiles. There are no
 per-level background PNG paths; edit the `.tmx` maps in Tiled to change their
 appearance while keeping the `Logic` path connected.
+
+## Sound and music placeholders
+
+The game currently generates Atari-style placeholder audio in code; no audio
+files are needed to play it. All levels share one looping background-music
+placeholder. The suggested paths below are for future replacement assets and
+are not loaded by the current game.
+
+| Sound | Suggested filename | Placeholder |
+|---|---|---|
+| UI click | `assets/audio/ui_click.wav` | Short high-pitched blip |
+| Tower fire | `assets/audio/tower_fire.wav` | Rising two-note blip |
+| Projectile/beam impact | `assets/audio/impact.wav` | Short descending zap |
+| Enemy reaches base | `assets/audio/enemy_escape.wav` | Three-note descending cue |
+| Wave starts | `assets/audio/wave_start.wav` | Three-note rising cue |
+| Victory | `assets/audio/victory.wav` | Short rising fanfare |
+| Defeat | `assets/audio/defeat.wav` | Descending four-note cue |
+| Level music | `assets/audio/music/{level-id}.ogg` | One shared looping chiptune |
+
+Future per-level music can use the level ID in the filename; until those files
+are supported and supplied, every level uses the same generated music loop.

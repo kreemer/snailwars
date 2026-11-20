@@ -1,6 +1,7 @@
 //! Core game state: gold, lives, wave progression, and the update/draw
 //! loop that ties enemies, towers, and projectiles together.
 
+use crate::audio::AudioEvent;
 use crate::enemy::{Enemy, EnemyType};
 use crate::fx::{Impact, LaserBeam};
 use crate::level::Level;
@@ -138,12 +139,13 @@ impl Game {
     /// [`crate::viewport::Viewport::to_ui_logical`] and
     /// [`crate::viewport::Viewport::to_world_logical`]. This module
     /// never needs to know about the real window size/zoom itself.
-    pub fn update(&mut self, real_dt: f32, ui_mouse: Vec2, world_mouse: Vec2) {
+    pub fn update(&mut self, real_dt: f32, ui_mouse: Vec2, world_mouse: Vec2) -> Vec<AudioEvent> {
+        let mut audio_events = Vec::new();
         if self.status != GameStatus::Playing {
-            return;
+            return audio_events;
         }
 
-        self.handle_input(ui_mouse, world_mouse);
+        self.handle_input(ui_mouse, world_mouse, &mut audio_events);
         if is_key_pressed(KeyCode::Tab) {
             self.speed_index = (self.speed_index + 1) % SPEED_LEVELS.len();
         }
@@ -177,9 +179,11 @@ impl Game {
                             &mut self.beams,
                             &mut self.impacts,
                         );
+                        audio_events.push(AudioEvent::Impact);
                     } else {
                         self.projectiles.push(Projectile::new(tower.pos, shot));
                     }
+                    audio_events.push(AudioEvent::TowerFire);
                     tower.fire();
                 }
             }
@@ -195,6 +199,7 @@ impl Game {
                 ProjectileStatus::Hit(impact_pos) => {
                     let projectile = &self.projectiles[i];
                     projectile.shot.apply(&mut self.enemies);
+                    audio_events.push(AudioEvent::Impact);
                     if projectile.shot.effects.contains(&EffectType::Lava) {
                         self.map.add_lava_pool(impact_pos);
                     }
@@ -230,10 +235,15 @@ impl Game {
         });
         self.gold += gold_earned;
         self.lives = self.lives.saturating_sub(lives_lost);
+        audio_events.extend(std::iter::repeat_n(
+            AudioEvent::EnemyEscaped,
+            lives_lost as usize,
+        ));
 
         if self.lives == 0 {
             self.status = GameStatus::GameOver;
-            return;
+            audio_events.push(AudioEvent::Defeat);
+            return audio_events;
         }
 
         if self.wave_active && self.spawn_queue.is_empty() && self.enemies.is_empty() {
@@ -241,8 +251,10 @@ impl Game {
             self.wave_active = false;
             if self.wave_number >= self.waves.len() as u32 {
                 self.status = GameStatus::Win;
+                audio_events.push(AudioEvent::Victory);
             }
         }
+        audio_events
     }
 
     fn update_spawning(&mut self, dt: f32) {
@@ -267,7 +279,12 @@ impl Game {
         }
     }
 
-    fn handle_input(&mut self, ui_mouse: Vec2, world_mouse: Vec2) {
+    fn handle_input(
+        &mut self,
+        ui_mouse: Vec2,
+        world_mouse: Vec2,
+        audio_events: &mut Vec<AudioEvent>,
+    ) {
         if !is_mouse_button_pressed(MouseButton::Left) {
             return;
         }
@@ -281,19 +298,22 @@ impl Game {
                     Some(kind)
                 };
                 self.open_menu = None;
+                audio_events.push(AudioEvent::UiClick);
                 return;
             }
         }
 
         // Start wave button.
         if ui::start_wave_button_rect().contains(ui_mouse) && !self.wave_active {
-            self.start_next_wave();
+            self.start_next_wave(audio_events);
+            audio_events.push(AudioEvent::UiClick);
             return;
         }
 
         // Speed toggle button.
         if ui::speed_button_rect().contains(ui_mouse) {
             self.speed_index = (self.speed_index + 1) % SPEED_LEVELS.len();
+            audio_events.push(AudioEvent::UiClick);
             return;
         }
 
@@ -303,13 +323,12 @@ impl Game {
         // checked against `ui_mouse`, not `world_mouse` - the latter is in
         // absolute map coordinates, which can well exceed `PLAY_H` once
         // the camera has scrolled or zoomed out.
-        if ui_mouse.y < crate::map::TOP_BAR
-            || ui_mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H
+        if ui_mouse.y < crate::map::TOP_BAR || ui_mouse.y > crate::map::TOP_BAR + crate::map::PLAY_H
         {
             return;
         }
 
-        if self.handle_tower_menu_click(world_mouse) {
+        if self.handle_tower_menu_click(world_mouse, audio_events) {
             return;
         }
 
@@ -320,6 +339,7 @@ impl Game {
         {
             self.open_menu = Some(spot_index);
             self.selected_tower = None;
+            audio_events.push(AudioEvent::UiClick);
             return;
         }
 
@@ -338,6 +358,7 @@ impl Game {
                     spot_index,
                     Tower::new(kind, self.map.build_spots[spot_index]),
                 );
+                audio_events.push(AudioEvent::UiClick);
             }
         }
     }
@@ -345,7 +366,11 @@ impl Game {
     /// Handle a left click while a tower menu is open. Returns `true` if
     /// the click was consumed by the menu. Clicking anywhere outside the
     /// menu closes it (and lets the click fall through).
-    fn handle_tower_menu_click(&mut self, world_mouse: Vec2) -> bool {
+    fn handle_tower_menu_click(
+        &mut self,
+        world_mouse: Vec2,
+        audio_events: &mut Vec<AudioEvent>,
+    ) -> bool {
         let Some(spot_index) = self.open_menu else {
             return false;
         };
@@ -360,6 +385,7 @@ impl Game {
                 if self.gold >= cost {
                     tower.upgrade();
                     self.gold -= cost;
+                    audio_events.push(AudioEvent::UiClick);
                 }
             }
             return true;
@@ -369,6 +395,7 @@ impl Game {
             self.occupied[spot_index] = false;
             self.towers.remove(&spot_index);
             self.open_menu = None;
+            audio_events.push(AudioEvent::UiClick);
             return true;
         }
         if layout.panel.contains(world_mouse) {
@@ -378,7 +405,7 @@ impl Game {
         false
     }
 
-    fn start_next_wave(&mut self) {
+    fn start_next_wave(&mut self, audio_events: &mut Vec<AudioEvent>) {
         self.wave_number += 1;
         let wave = &self.waves[self.wave_number as usize - 1];
         self.spawn_timer = 0.0;
@@ -392,6 +419,7 @@ impl Game {
             })
             .collect();
         self.wave_active = true;
+        audio_events.push(AudioEvent::WaveStarted);
     }
 
     /// Draw the zoomable world layer: map, towers, enemies, projectiles,

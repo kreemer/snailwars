@@ -12,6 +12,7 @@
 //! cache of already-loaded tileset textures (levels are switchable, so
 //! their textures can no longer be loaded once at startup).
 
+use crate::audio::{AudioEvent, AudioManager};
 use crate::catalog::LevelCatalog;
 use crate::game::{Game, GameStatus};
 use crate::level::Level;
@@ -54,6 +55,7 @@ pub struct App {
     catalog: LevelCatalog,
     progress: Progress,
     sprites: Sprites,
+    audio: AudioManager,
     tileset_textures: HashMap<PathBuf, Texture2D>,
     viewport: Viewport,
     screen: Screen,
@@ -65,6 +67,7 @@ impl App {
             catalog: LevelCatalog::load(),
             progress: Progress::load(),
             sprites: Sprites::load().await,
+            audio: AudioManager::new().await,
             tileset_textures: HashMap::new(),
             viewport: Viewport::new(),
             screen: Screen::Title,
@@ -108,8 +111,14 @@ impl App {
         for (action, rect) in ui::title_buttons() {
             if rect.contains(ui_mouse) {
                 return match action {
-                    TitleAction::Play => Transition::MapSelect,
-                    TitleAction::Quit => Transition::Quit,
+                    TitleAction::Play => {
+                        self.audio.play(AudioEvent::UiClick);
+                        Transition::MapSelect
+                    }
+                    TitleAction::Quit => {
+                        self.audio.play(AudioEvent::UiClick);
+                        Transition::Quit
+                    }
                 };
             }
         }
@@ -136,6 +145,7 @@ impl App {
             return Transition::Stay;
         }
         if ui::map_select_back_rect().contains(ui_mouse) {
+            self.audio.play(AudioEvent::UiClick);
             return Transition::Title;
         }
         for (index, rect) in ui::map_select_card_rects(items.len())
@@ -143,6 +153,7 @@ impl App {
             .enumerate()
         {
             if rect.contains(ui_mouse) && items[index].unlocked {
+                self.audio.play(AudioEvent::UiClick);
                 return Transition::Play(index);
             }
         }
@@ -168,7 +179,9 @@ impl App {
             self.viewport.handle_scroll_input(dt);
         }
         let world_mouse = self.viewport.to_world_logical(screen_mouse);
-        game.update(dt, ui_mouse, world_mouse);
+        for event in game.update(dt, ui_mouse, world_mouse) {
+            self.audio.play(event);
+        }
 
         self.viewport.begin_world();
         game.draw_world(ui_mouse, world_mouse);
@@ -177,6 +190,7 @@ impl App {
 
         if *game.status() == GameStatus::Playing {
             return if is_key_pressed(KeyCode::Escape) {
+                self.audio.stop_music();
                 Transition::Title
             } else {
                 Transition::Stay
@@ -184,6 +198,7 @@ impl App {
         }
 
         let won = *game.status() == GameStatus::Win;
+        self.audio.stop_music();
         if !session.outcome_handled {
             session.outcome_handled = true;
             if won {
@@ -222,9 +237,18 @@ impl App {
         for (action, rect) in ui::end_overlay_buttons(&actions) {
             if rect.contains(ui_mouse) {
                 return match action {
-                    EndAction::NextLevel => Transition::Play(level_index + 1),
-                    EndAction::Restart => self.restart_level(),
-                    EndAction::BackToTitle => Transition::Title,
+                    EndAction::NextLevel => {
+                        self.audio.play(AudioEvent::UiClick);
+                        Transition::Play(level_index + 1)
+                    }
+                    EndAction::Restart => {
+                        self.audio.play(AudioEvent::UiClick);
+                        self.restart_level()
+                    }
+                    EndAction::BackToTitle => {
+                        self.audio.play(AudioEvent::UiClick);
+                        Transition::Title
+                    }
                 };
             }
         }
@@ -238,6 +262,7 @@ impl App {
             session.game.restart();
             session.outcome_handled = false;
             self.viewport.set_world_bounds(session.game.world_size());
+            self.audio.start_music();
         }
         Transition::Stay
     }
@@ -271,6 +296,7 @@ impl App {
 
         let game = Game::load(&entry.id, level, textures, self.sprites.clone());
         self.viewport.set_world_bounds(game.world_size());
+        self.audio.start_music();
         self.screen = Screen::Playing(Box::new(Session {
             game,
             level_index: index,

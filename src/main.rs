@@ -4,6 +4,7 @@
 //! towers alongside it to stop them before they reach the base.
 
 mod app;
+mod audio;
 mod catalog;
 mod enemy;
 mod fx;
