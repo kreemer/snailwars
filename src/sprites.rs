@@ -71,7 +71,6 @@ pub struct Sprites {
     /// Lava pool left on the ground by Lava tower hits; see
     /// [`crate::map::LavaPool`].
     pub lava_pool: Texture2D,
-    pub enemy_level: Texture2D,
     /// Full-screen art behind the title screen, loaded from
     /// `assets/ui/title_background.png`. `None` while the art is
     /// missing, in which case the title screen paints a plain
@@ -276,11 +275,6 @@ impl Sprites {
                 64,
                 Color::new(1.0, 0.85, 0.2, 0.95),
                 Color::new(0.85, 0.15, 0.0, 0.0),
-            ),
-            enemy_level: circle_texture(
-                256,
-                Color::new(0.35, 0.7, 1.0, 1.0),
-                Color::new(0.1, 0.3, 0.6, 1.0),
             ),
             title_background: None,
         }

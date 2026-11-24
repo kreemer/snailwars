@@ -7,20 +7,14 @@ use macroquad::prelude::*;
 use serde::Deserialize;
 
 use crate::sprites::{Direction, Sprites};
-use crate::tower::{EffectType, LAVA_DPS, POISON_DPS, SLOW_FACTOR, TowerType};
+use crate::tower::{EffectType, LAVA_DPS, POISON_DPS, SLOW_FACTOR, TowerType, draw_level_badge};
 
 /// Size of a single debuff icon in world units.
 const EFFECT_ICON_SIZE: f32 = 10.0;
 /// Horizontal gap between two debuff icons.
 const EFFECT_ICON_SPACING: f32 = 2.0;
-/// Gap between the enemy sprite and the debuff icon row.
-const EFFECT_ICON_MARGIN: f32 = 2.0;
-
-/// Enemy level icon size
-const LEVEL_ICON_SIZE: f32 = 10.0;
-
-/// Enemy level icon size
-const LEVEL_ICON_MARGIN: f32 = 5.0;
+/// Gap below the sprite that leaves room for the level badge.
+const EFFECT_ICON_MARGIN: f32 = 12.0;
 
 /// Damage a direct hit always deals, no matter how much armor absorbs, so
 /// armor can slow an enemy's death down but never make it immortal.
@@ -298,7 +292,7 @@ impl Enemy {
         );
 
         self.draw_effect_icons(sprites);
-        self.draw_level_icon(sprites);
+        draw_level_badge(u32::from(self.level), self.pos, r * 2.0);
     }
 
     /// Draw one icon per active debuff in a row centered below the enemy.
@@ -331,25 +325,6 @@ impl Enemy {
             );
             x += EFFECT_ICON_SIZE + EFFECT_ICON_SPACING;
         }
-    }
-
-    /// Draw the level icon of the enemy above its head    
-    fn draw_level_icon(&self, _sprites: &Sprites) {
-        let x = self.pos.x;
-        let y = self.pos.y - self.kind.radius() - LEVEL_ICON_MARGIN;
-
-        // draw_texture_ex(
-        //     &sprites.enemy_level,
-        //     x,
-        //     y,
-        //     WHITE,
-        //     DrawTextureParams {
-        //       dest_size: Some(vec2(LEVEL_ICON_SIZE, LEVEL_ICON_SIZE)),
-        //     ..Default::default()
-        //     },
-        // );
-
-        draw_text(format!("{}", self.level), x, y + 6.0, 12.0, DARKGRAY);
     }
 
     /// Apply the given debuffs, each for its own duration. Re-applying an

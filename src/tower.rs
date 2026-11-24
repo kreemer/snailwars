@@ -174,6 +174,23 @@ pub const MAX_LEVEL: u32 = 5;
 /// Stat bonus gained per level above 1 (damage, fire rate, splash).
 const LEVEL_BONUS: f32 = 0.25;
 
+/// Draw a level badge at the lower-right edge of a unit's sprite.
+pub(crate) fn draw_level_badge(level: u32, pos: Vec2, size: f32) {
+    let label = level.to_string();
+    let font_size = 16.0;
+    let dims = measure_text(&label, None, font_size as u16, 1.0);
+    let badge = vec2(pos.x + size / 2.0 - 6.0, pos.y + size / 2.0 - 6.0);
+    draw_circle(badge.x, badge.y, 8.0, Color::new(0.1, 0.1, 0.12, 0.9));
+    draw_circle_lines(badge.x, badge.y, 8.0, 1.0, GOLD);
+    draw_text(
+        &label,
+        badge.x - dims.width / 2.0,
+        badge.y + dims.height / 2.0,
+        font_size,
+        WHITE,
+    );
+}
+
 pub struct Tower {
     pub kind: TowerType,
     pub pos: Vec2,
@@ -287,19 +304,7 @@ impl Tower {
             },
         );
 
-        let label = self.level.to_string();
-        let font_size = 16.0;
-        let dims = measure_text(&label, None, font_size as u16, 1.0);
-        let badge = vec2(self.pos.x + size / 2.0 - 6.0, self.pos.y + size / 2.0 - 6.0);
-        draw_circle(badge.x, badge.y, 8.0, Color::new(0.1, 0.1, 0.12, 0.9));
-        draw_circle_lines(badge.x, badge.y, 8.0, 1.0, GOLD);
-        draw_text(
-            &label,
-            badge.x - dims.width / 2.0,
-            badge.y + dims.height / 2.0,
-            font_size,
-            WHITE,
-        );
+        draw_level_badge(self.level, self.pos, size);
     }
 }
 

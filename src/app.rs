@@ -65,6 +65,13 @@ pub struct App {
 
 impl App {
     pub async fn new() -> Self {
+        let font = load_ttf_font("assets/fonts/DejaVuSans.ttf")
+            .await
+            .unwrap_or_else(|e| {
+                panic!("failed to load UI font 'assets/fonts/DejaVuSans.ttf': {e}")
+            });
+        set_default_font(font);
+
         App {
             catalog: LevelCatalog::load(),
             progress: Progress::load(),

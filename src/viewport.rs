@@ -67,7 +67,7 @@ impl Viewport {
         world_camera.render_target = Some(world_target.clone());
 
         let ui_target = render_target(SCREEN_W as u32, WINDOW_H as u32);
-        ui_target.texture.set_filter(FilterMode::Nearest);
+        ui_target.texture.set_filter(FilterMode::Linear);
         let mut ui_camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, SCREEN_W, WINDOW_H));
         ui_camera.render_target = Some(ui_target.clone());
 
